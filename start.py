@@ -9,16 +9,19 @@ import time
 bot = discord.Client()
 
 # These options are originally from
-#https://stackoverflow.com/questions/66070749/how-to-fix-discord-music-bot-that-stops-playing-before-the-song-is-actually-over
+# https://stackoverflow.com/questions/66070749/how-to-fix-discord-music-bot-that-stops-playing-before-the-song-is-actually-over
 ytdl_format_options = {
     'format': 'bestaudio/best',
     'noplaylist': True,
+    'default_search': 'auto',
     'nocheckcertificate': True,
 }
+
 ffmpeg_options = {
     'options': '-vn',
     "before_options": "-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5"
 }
+
 ytdl = youtube_dl.YoutubeDL(ytdl_format_options)
  
 async def join_channel(message):
@@ -40,12 +43,14 @@ async def play(message):
     await join_channel(message)
     
     start = time.time()
-    song_info = ytdl.extract_info(message.content[5:].strip(), download=False)
-    print(time.time()-start)
+    print("Test")
+    song_info = ytdl.extract_info("ytsearch:{%s}" % message.content[5:].strip(), download=False)["entries"][0]
+    print(song_info)
+    print("Time to get song info: %s" % str(time.time()-start))
     
     start = time.time()
     message.guild.voice_client.play(discord.FFmpegPCMAudio(song_info["formats"][0]["url"], **ffmpeg_options), after=lambda x: stop(message))
-    print(time.time()-start)
+    print("Time to format and play song: %s" % str(time.time()-start))
     
     message.guild.voice_client.source = discord.PCMVolumeTransformer(message.guild.voice_client.source)
     message.guild.voice_client.source.volume = 1
