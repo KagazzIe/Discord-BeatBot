@@ -28,7 +28,8 @@ ffmpeg_options = {
 ytdl = youtube_dl.YoutubeDL(ytdl_format_options)
 guild_queues = {}
 bot = discord.Client()
-
+class myBot():
+    pass
 class Song():
     def __init__(self, bot_url, user_url, title, response_channel_id, requester_name):
         self.bot_url = bot_url
@@ -46,7 +47,7 @@ async def join_channel(message):
                 await leave_channel(message)
                 await channel.connect()
                 guild_queues[message.guild.id] = []
-                stop(message.guild)
+                stop(message)
         
 async def leave_channel(message):
     if message.guild.voice_client:
@@ -67,7 +68,7 @@ async def play(message):
     guild_queues[message.guild.id].append(song)
     await message.channel.send("Added video #%i queue :file_folder: %s" % (queue_len, title))
     
-    play_next(message.guild)
+    play_next(message)
 
 def stop(message):
     if message.guild.voice_client:
@@ -117,7 +118,7 @@ async def on_message(message):
     if arguments[0] in await_functions:
         await await_functions[arguments[0]](message)
     elif arguments[0] in functions:
-        functions[arguments[0]](message.guild)
+        functions[arguments[0]](message)
     elif message.content.startswith('$'):
         #This is for testing the internals
         print(message.content[1:])
