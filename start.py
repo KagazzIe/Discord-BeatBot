@@ -7,7 +7,7 @@ import time
 #Discord Library Needed
 #Youtube DL Needed
 
-bot = discord.Client()
+
 
 # These options are originally from
 # https://stackoverflow.com/questions/66070749/how-to-fix-discord-music-bot-that-stops-playing-before-the-song-is-actually-over
@@ -16,6 +16,8 @@ ytdl_format_options = {
     'noplaylist': True,
     'default_search': 'auto',
     'nocheckcertificate': True,
+    'logtostderr': False,
+    'quiet': True,
 }
 
 ffmpeg_options = {
@@ -25,17 +27,26 @@ ffmpeg_options = {
 
 ytdl = youtube_dl.YoutubeDL(ytdl_format_options)
 guild_queues = {}
-        
+bot = discord.Client()
+
+class Song():
+    def __init__(self, bot_url, user_url, title, response_channel_id, requester_name):
+        self.bot_url = bot_url
+        self.user_url = user_url
+        self.title = title
+        self.channel_id = response_channel_id
+        self.requester_name = requester_name
+
 async def join_channel(message):
     for channel in message.guild.voice_channels:
         channel_members = [x.id for x in channel.members]
         if (message.author.id in channel_members):
             if bot.user.id not in channel_members:
                 #If bot is not in the correct channel
-                    await leave_channel(message)
-                    await channel.connect()
-                    guild_queues[message.guild.id] = []
-                    stop(message.guild)
+                await leave_channel(message)
+                await channel.connect()
+                guild_queues[message.guild.id] = []
+                stop(message.guild)
         
 async def leave_channel(message):
     if message.guild.voice_client:
@@ -45,35 +56,46 @@ async def leave_channel(message):
 async def play(message):
     
     await join_channel(message)
-    guild_queues[message.guild.id].append(ytdl.extract_info("ytsearch:{%s}" % message.content[5:].strip(), download=False)["entries"][0]["formats"][0]["url"])
+    search_term = message.content[5:].strip()
+    await message.channel.send("Searching :mag_right: %s" % search_term)
+    video = ytdl.extract_info("ytsearch:{%s}" % search_term, download=False)["entries"][0]
+    bot_url = video["formats"][0]["url"]
+    title = video["title"]
+    user_url = "https://www.youtube.com/watch?v=%s" % video["id"]
+    song = Song(bot_url, user_url, title, message.channel.id, message.author.display_name)
+    queue_len = len(guild_queues[message.channel.id]) + message.guild.voice_client.is_playing()
+    guild_queues[message.guild.id].append(song)
+    await message.channel.send("Added video #%i queue :file_folder: %s" % (queue_len, title))
+    
     play_next(message.guild)
 
-def stop(guild):
-    if guild.voice_client:
-        guild.voice_client.stop()
+def stop(message):
+    if message.guild.voice_client:
+        message.guild.voice_client.stop()
 
-def pause(guild):
-    if guild.voice_client:
+def pause(message):
+    if message.guild.voice_client:
         message.guild.voice_client.pause()
 
-def resume(guild):
-    if guild.voice_client:
-        guild.voice_client.resume()
+def resume(message):
+    if message.guild.voice_client:
+        message.guild.voice_client.resume()
 
-def skip(guild):
-    if guild.voice_client:
+def skip(message):
+    if message.guild.voice_client:
         stop(guild)
-        time.sleep(0.5) #Sleep for a half second to put a pause between songs
         play_next(guild)
 
-def play_next(guild):
+def play_next(message):
+    guild = message.guild
     if (not guild.voice_client.is_playing()) and guild_queues[guild.id]:
         start = time.time()
-        next_song = guild_queues[guild.id][0]
-        guild.voice_client.play(discord.FFmpegPCMAudio(next_song, **ffmpeg_options), after=lambda x: play_next(guild))
+        song = guild_queues[guild.id][0]
+        response_channel = bot.get_channel(song.channel_id)
+        guild.voice_client.play(discord.FFmpegPCMAudio(song.bot_url, **ffmpeg_options), after=lambda x:play_next(message))
         guild_queues[guild.id] = guild_queues[guild.id][1:]
-        print("Time to format and play song: %s" % str(time.time()-start))
-
+        print("Time to format and play song: %s" % str(time.time()-start)) 
+    
 @bot.event
 async def on_ready():
     print('We have logged in as {0.user}'.format(bot))
