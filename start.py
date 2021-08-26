@@ -5,6 +5,7 @@ import time
 
 #PyNaCl Library Needed
 #Discord Library Needed
+#Youtube DL Needed
 
 bot = discord.Client()
 
@@ -23,7 +24,8 @@ ffmpeg_options = {
 }
 
 ytdl = youtube_dl.YoutubeDL(ytdl_format_options)
- 
+guild_queues = {}
+        
 async def join_channel(message):
     for channel in message.guild.voice_channels:
         channel_members = [x.id for x in channel.members]
@@ -32,40 +34,45 @@ async def join_channel(message):
                 #If bot is not in the correct channel
                     await leave_channel(message)
                     await channel.connect()
-                    stop(message)
+                    guild_queues[message.guild.id] = []
+                    stop(message.guild)
         
 async def leave_channel(message):
     if message.guild.voice_client:
+        guild_queues[message.guild] = None
         await message.guild.voice_client.disconnect()
 
 async def play(message):
     
     await join_channel(message)
-    
-    start = time.time()
-    print("Test")
-    song_info = ytdl.extract_info("ytsearch:{%s}" % message.content[5:].strip(), download=False)["entries"][0]
-    print(song_info)
-    print("Time to get song info: %s" % str(time.time()-start))
-    
-    start = time.time()
-    message.guild.voice_client.play(discord.FFmpegPCMAudio(song_info["formats"][0]["url"], **ffmpeg_options), after=lambda x: stop(message))
-    print("Time to format and play song: %s" % str(time.time()-start))
-    
-    message.guild.voice_client.source = discord.PCMVolumeTransformer(message.guild.voice_client.source)
-    message.guild.voice_client.source.volume = 1
+    guild_queues[message.guild.id].append(ytdl.extract_info("ytsearch:{%s}" % message.content[5:].strip(), download=False)["entries"][0]["formats"][0]["url"])
+    play_next(message.guild)
 
-def stop(message):
-    if message.guild.voice_client:
-        message.guild.voice_client.stop()
+def stop(guild):
+    if guild.voice_client:
+        guild.voice_client.stop()
 
-def pause(message):
-    if message.guild.voice_client:
+def pause(guild):
+    if guild.voice_client:
         message.guild.voice_client.pause()
 
-def resume(message):
-    if message.guild.voice_client:
-        message.guild.voice_client.resume()
+def resume(guild):
+    if guild.voice_client:
+        guild.voice_client.resume()
+
+def skip(guild):
+    if guild.voice_client:
+        stop(guild)
+        time.sleep(0.5) #Sleep for a half second to put a pause between songs
+        play_next(guild)
+
+def play_next(guild):
+    if (not guild.voice_client.is_playing()) and guild_queues[guild.id]:
+        start = time.time()
+        next_song = guild_queues[guild.id][0]
+        guild.voice_client.play(discord.FFmpegPCMAudio(next_song, **ffmpeg_options), after=lambda x: play_next(guild))
+        guild_queues[guild.id] = guild_queues[guild.id][1:]
+        print("Time to format and play song: %s" % str(time.time()-start))
 
 @bot.event
 async def on_ready():
@@ -82,12 +89,13 @@ async def on_message(message):
     
     functions = {'$stop':stop,
                  '$pause':pause,
-                 '$resume':resume}
+                 '$resume':resume,
+                 '$skip':skip}
     arguments = message.content.split(" ")
     if arguments[0] in await_functions:
         await await_functions[arguments[0]](message)
     elif arguments[0] in functions:
-        functions[arguments[0]](message)
+        functions[arguments[0]](message.guild)
     elif message.content.startswith('$'):
         #This is for testing the internals
         print(message.content[1:])
