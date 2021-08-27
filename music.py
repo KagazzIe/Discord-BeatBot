@@ -3,7 +3,7 @@ import youtube_dl
 import time
 from discord.ext import commands
 #Youtube DL Needed
-
+#Discord Library Needed
 
 # These options are originally from
 # https://stackoverflow.com/questions/66070749/how-to-fix-discord-music-bot-that-stops-playing-before-the-song-is-actually-over
@@ -36,7 +36,7 @@ class Music(commands.Cog):
 
     @commands.command()
     async def join(self, ctx):
-        channel = find_user_channel(ctx.guild, ctx.author.id)
+        channel = ctx.author.voice.channel
         if channel is None:
             print("User is not in a channel")
             return
@@ -76,7 +76,7 @@ class Music(commands.Cog):
     @commands.command()
     async def resume(self, ctx):
         if ctx.voice_client:
-            await ctx.channel.send("Skipping Song :arrow_right:")
+            await ctx.channel.send("Resuming Song :arrow_right:")
             ctx.voice_client.resume()
         else:
             ctx.channel.send("I am not connected to a VC")
@@ -97,10 +97,3 @@ class Music(commands.Cog):
             ctx.voice_client.stop()
         else:
             ctx.channel.send("I am not connected to a VC")
-            
-    
-def find_user_channel(guild, user_id):
-    for channel in guild.voice_channels:
-        channel_members = [x.id for x in channel.members]
-        if (user_id in channel_members):
-            return channel
