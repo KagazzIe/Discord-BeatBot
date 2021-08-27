@@ -30,9 +30,12 @@ class Song(discord.PCMVolumeTransformer):
         return self(discord.FFmpegPCMAudio(data['url'], **ffmpeg_options), data=data)        
 
 class Music(commands.Cog):
+    # I eventually want to get this running on a linux machine so I can fork
+    # This would allow extremly easy VC management
+    # Because I am on windows I need to murder this bueatiful code
     def __init__(self, bot):
         self.bot = bot
-        self.song_list = []
+        self.guild_song_lists = {}
 
     @commands.command()
     async def join(self, ctx):
@@ -41,12 +44,15 @@ class Music(commands.Cog):
             print("User is not in a channel")
             return
         if ctx.voice_client is not None:
-            return await ctx.voice_client.move_to(channel)
-        await channel.connect()
+            await ctx.voice_client.move_to(channel)
+        else:
+            self.guild_song_lists[ctx.guild.id] = []
+            await channel.connect()
 
     @commands.command()
     async def leave(self, ctx):
         if ctx.voice_client is not None:
+            self.guild_song_lists[ctx.guild.id] = None
             await ctx.channel.send("Leaving VC :wave:")
             await ctx.voice_client.disconnect()
         else:
@@ -54,15 +60,16 @@ class Music(commands.Cog):
 
     @commands.command()
     async def play(self, ctx, *, search_term):
-        def next_song(voice_client):
-            if self.song_list and (not voice_client.is_playing()):
-                ctx.voice_client.play(self.song_list.pop(0), after=lambda x: next_song(voice_client))
+        def next_song(guild_id, voice_client):
+            song_list = self.guild_song_lists[ctx.guild.id]
+            if song_list and (not voice_client.is_playing()):
+                ctx.voice_client.play(song_list.pop(0), after=lambda x: next_song(guild_id, voice_client))
         await self.join(ctx)
-        await ctx.channel.send("Searching :mag_right: %s" % search_term)
+        await ctx.channel.send("Searching :mag_right: <%s>" % search_term)
         player = await Song.search(search_term)
-        await ctx.channel.send("Added video #%i to queue :file_folder: %s" % (len(self.song_list)-ctx.voice_client.is_playing(), player.data.get('title')))
-        self.song_list.append(player)
-        next_song(ctx.voice_client)
+        await ctx.channel.send("Added video #%i to queue :file_folder: %s" % (len(self.guild_song_lists[ctx.guild.id])+ctx.voice_client.is_playing(), player.data.get('title')))
+        self.guild_song_lists[ctx.guild.id].append(player)
+        next_song(ctx.guild.id, ctx.voice_client)
         
     
     @commands.command()
@@ -97,3 +104,5 @@ class Music(commands.Cog):
             ctx.voice_client.stop()
         else:
             ctx.channel.send("I am not connected to a VC")
+
+    
