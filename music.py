@@ -104,12 +104,3 @@ def find_user_channel(guild, user_id):
         channel_members = [x.id for x in channel.members]
         if (user_id in channel_members):
             return channel
-
-
-#@bot.event
-#async def on_ready():
-#    print(f'Logged in as {bot.user} (ID: {bot.user.id})')
-#    print('------')
-
-#bot.add_cog(Music(bot))
-#bot.run('ODgwMDgzNzg4OTU1Mjc5NDEw.YSZH5g.L9j8hNmfBHlepqKtQ485isAi-cA')
