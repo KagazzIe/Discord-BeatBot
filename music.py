@@ -47,7 +47,7 @@ class Music(commands.Cog):
         if ctx.voice_client is not None:
             await ctx.voice_client.move_to(channel)
         else:
-            self.guild_song_lists[ctx.guild.id] = queue.SimpleQueue()
+            self.guild_song_lists[ctx.guild.id] = queue.Queue()
             await channel.connect()
 
     @commands.command()
@@ -65,6 +65,10 @@ class Music(commands.Cog):
             song_queue = self.guild_song_lists[ctx.guild.id]
             if song_queue and (not voice_client.is_playing()):
                 ctx.voice_client.play(song_queue.get(), after=lambda x: next_song(guild_id, voice_client))
+        # If Beatbot is currently playing music in a channel that the requester is not in      
+        if (ctx.guild.id in self.guild_song_lists) and ctx.voice_client.is_playing() and (ctx.author.voice.channel != ctx.voice_client.channel):
+            await ctx.channel.send("I am currently playing music in: %s" % ctx.voice_client.channel.name)
+            return
         await self.join(ctx)
         await ctx.channel.send("Searching :mag_right: `%s`" % search_term)
         player = await Song.search(search_term)
@@ -105,5 +109,22 @@ class Music(commands.Cog):
             ctx.voice_client.stop()
         else:
             ctx.channel.send("I am not connected to a VC")
+
+    @commands.command()
+    async def queue(self, ctx):
+        if ctx.guild.id not in self.guild_song_lists:
+            await ctx.channel.send("Not currently connected to a VC")
+            return
+        if self.guild_song_lists[ctx.guild.id].empty():
+            await ctx.channel.send("No songs are currently in queue")
+            return
+        
+        string = "```"
+        song_list = list(self.guild_song_lists[ctx.guild.id].queue)
+        for i in range(len(song_list)):
+            string += "%i - %s\n" % (i, song_list[i].data.get('title'))
+        string += "```"
+        await ctx.channel.send(string)
+        
 
     
