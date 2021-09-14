@@ -2,6 +2,7 @@ import discord
 import youtube_dl
 import time
 from discord.ext import commands
+import queue
 #Youtube DL Needed
 #Discord Library Needed
 
@@ -46,7 +47,7 @@ class Music(commands.Cog):
         if ctx.voice_client is not None:
             await ctx.voice_client.move_to(channel)
         else:
-            self.guild_song_lists[ctx.guild.id] = []
+            self.guild_song_lists[ctx.guild.id] = queue.SimpleQueue()
             await channel.connect()
 
     @commands.command()
@@ -61,14 +62,14 @@ class Music(commands.Cog):
     @commands.command()
     async def play(self, ctx, *, search_term):
         def next_song(guild_id, voice_client):
-            song_list = self.guild_song_lists[ctx.guild.id]
-            if song_list and (not voice_client.is_playing()):
-                ctx.voice_client.play(song_list.pop(0), after=lambda x: next_song(guild_id, voice_client))
+            song_queue = self.guild_song_lists[ctx.guild.id]
+            if song_queue and (not voice_client.is_playing()):
+                ctx.voice_client.play(song_queue.get(), after=lambda x: next_song(guild_id, voice_client))
         await self.join(ctx)
-        await ctx.channel.send("Searching :mag_right: <%s>" % search_term)
+        await ctx.channel.send("Searching :mag_right: `%s`" % search_term)
         player = await Song.search(search_term)
-        await ctx.channel.send("Added video #%i to queue :file_folder: %s" % (len(self.guild_song_lists[ctx.guild.id])+ctx.voice_client.is_playing(), player.data.get('title')))
-        self.guild_song_lists[ctx.guild.id].append(player)
+        await ctx.channel.send("Added video #%i to queue :file_folder: %s" % (self.guild_song_lists[ctx.guild.id].qsize()+ctx.voice_client.is_playing(), player.data.get('title')))
+        self.guild_song_lists[ctx.guild.id].put(player)
         next_song(ctx.guild.id, ctx.voice_client)
         
     
