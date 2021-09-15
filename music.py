@@ -105,13 +105,13 @@ class Music(commands.Cog):
         def next_song(guild_id, voice_client):
             song_queue = self.guild_song_lists[ctx.guild.id]
             old_player = song_queue.peek()
-            if (isinstance(old_player, Playlist) and (not old_player.empty())):
+            if (isinstance(old_player, Playlist) and (len(old_player)!=1)):
                 old_player.change_song()
                 new_video = old_player.peek()
             else:
                 song_queue.get()
                 new_video = song_queue.peek()
-                
+            
             if (not song_queue.empty()) and (not voice_client.is_playing()):
                 ctx.voice_client.play(new_video, after=lambda x: next_song(guild_id, voice_client))
                 
@@ -123,7 +123,7 @@ class Music(commands.Cog):
         await self.join(ctx)
         
         #Playlist
-        if ('&list=' in search_term):
+        if (('&list=' in search_term) and ('https://www.youtube.com/watch?v=' == search_term[:32])):
             await ctx.channel.send('Getting Playlist at link :movie_camera: `%s`' % search_term)
             playlist = await Playlist.search(search_term)
             self.guild_song_lists[ctx.guild.id].put(playlist)
@@ -131,7 +131,7 @@ class Music(commands.Cog):
             ctx.voice_client.play(self.guild_song_lists[ctx.guild.id].peek().peek(), after=lambda x: next_song(ctx.guild.id, ctx.voice_client))
 
         #Link
-        elif ('https://www.youtube.com/watch?v=' in search_term):
+        elif ('https://www.youtube.com/watch?v=' == search_term[:32]):
             await ctx.channel.send('Getting video at link :arrow_right: `%s`' % search_term)
             player = await Song.fetch_link(search_term)
             
