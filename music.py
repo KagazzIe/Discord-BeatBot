@@ -113,7 +113,7 @@ class Music(commands.Cog):
     async def stop(self, ctx):
         if ctx.voice_client:
             await ctx.channel.send("Stoping Music :stop_button:")
-            self.song_list = []
+            self.guild_song_lists[ctx.guild.id] = myQueue()
             ctx.voice_client.stop()
         else:
             ctx.channel.send("I am not connected to a VC")
