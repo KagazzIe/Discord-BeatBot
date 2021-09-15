@@ -89,7 +89,7 @@ class Music(commands.Cog):
     @commands.command()
     async def pause(self, ctx):
         if ctx.voice_client:
-            await ctx.channel.send("Skipping Song :pause_button:")
+            await ctx.channel.send("Pausing Song :pause_button:")
             ctx.voice_client.pause()
         else:
             ctx.channel.send("I am not connected to a VC")
