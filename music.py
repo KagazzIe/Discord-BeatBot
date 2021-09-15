@@ -27,7 +27,13 @@ class Song(discord.PCMVolumeTransformer):
 
     @classmethod
     async def search(self, search_term):
-        data = ytdl.extract_info("ytsearch:{%s}" % search_term, download=False)['entries'][0]
+        print(search_term[:32])
+        if search_term[:32] == "https://www.youtube.com/watch?v=":
+            
+            data = ytdl.extract_info(search_term, download=False)
+        else:
+            
+            data = ytdl.extract_info("ytsearch:{%s}" % search_term, download=False)['entries'][0]
         return self(discord.FFmpegPCMAudio(data['url'], **ffmpeg_options), data=data)        
 
 class Music(commands.Cog):
@@ -66,11 +72,14 @@ class Music(commands.Cog):
             if song_queue and (not voice_client.is_playing()):
                 ctx.voice_client.play(song_queue.get(), after=lambda x: next_song(guild_id, voice_client))
         # If Beatbot is currently playing music in a channel that the requester is not in      
-        if (ctx.guild.id in self.guild_song_lists) and ctx.voice_client.is_playing() and (ctx.author.voice.channel != ctx.voice_client.channel):
+        if (ctx.voice_client) and ctx.voice_client.is_playing() and (ctx.author.voice.channel != ctx.voice_client.channel):
             await ctx.channel.send("I am currently playing music in: %s" % ctx.voice_client.channel.name)
             return
         await self.join(ctx)
-        await ctx.channel.send("Searching :mag_right: `%s`" % search_term)
+        if search_term[:32] == "https://www.youtube.com/watch?v=":
+            await ctx.channel.send("Getting Video at link :arrow_right: `%s`" % search_term)
+        else:
+            await ctx.channel.send("Searching :mag_right: `%s`" % search_term)
         player = await Song.search(search_term)
         await ctx.channel.send("Added video #%i to queue :file_folder: %s" % (self.guild_song_lists[ctx.guild.id].qsize()+ctx.voice_client.is_playing(), player.data.get('title')))
         self.guild_song_lists[ctx.guild.id].put(player)
@@ -112,7 +121,7 @@ class Music(commands.Cog):
 
     @commands.command()
     async def queue(self, ctx):
-        if ctx.guild.id not in self.guild_song_lists:
+        if not ctx.voice_client:
             await ctx.channel.send("Not currently connected to a VC")
             return
         if self.guild_song_lists[ctx.guild.id].empty():
@@ -125,6 +134,3 @@ class Music(commands.Cog):
             string += "%i - %s\n" % (i, song_list[i].data.get('title'))
         string += "```"
         await ctx.channel.send(string)
-        
-
-    
