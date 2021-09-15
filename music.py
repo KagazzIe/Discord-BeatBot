@@ -19,6 +19,11 @@ ffmpeg_options = {
     'options': '-vn',
     "before_options": "-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5"
 }
+
+class myQueue(queue.Queue):
+    def peek(self):
+        return self.queue[0]
+
 class Song(discord.PCMVolumeTransformer):
     def __init__(self, source, *, data, volume=1):
         super().__init__(source, volume)
@@ -53,7 +58,7 @@ class Music(commands.Cog):
         if ctx.voice_client is not None:
             await ctx.voice_client.move_to(channel)
         else:
-            self.guild_song_lists[ctx.guild.id] = queue.Queue()
+            self.guild_song_lists[ctx.guild.id] = myQueue()
             await channel.connect()
 
     @commands.command()
@@ -69,8 +74,9 @@ class Music(commands.Cog):
     async def play(self, ctx, *, search_term):
         def next_song(guild_id, voice_client):
             song_queue = self.guild_song_lists[ctx.guild.id]
+            song_queue.get()
             if song_queue and (not voice_client.is_playing()):
-                ctx.voice_client.play(song_queue.get(), after=lambda x: next_song(guild_id, voice_client))
+                ctx.voice_client.play(song_queue.peek(), after=lambda x: next_song(guild_id, voice_client))
         # If Beatbot is currently playing music in a channel that the requester is not in      
         if (ctx.voice_client) and ctx.voice_client.is_playing() and (ctx.author.voice.channel != ctx.voice_client.channel):
             await ctx.channel.send("I am currently playing music in: %s" % ctx.voice_client.channel.name)
@@ -81,9 +87,10 @@ class Music(commands.Cog):
         else:
             await ctx.channel.send("Searching :mag_right: `%s`" % search_term)
         player = await Song.search(search_term)
-        await ctx.channel.send("Added video #%i to queue :file_folder: %s" % (self.guild_song_lists[ctx.guild.id].qsize()+ctx.voice_client.is_playing(), player.data.get('title')))
+        await ctx.channel.send("Added video #%i to queue :file_folder: %s" % (self.guild_song_lists[ctx.guild.id].qsize(), player.data.get('title')))
         self.guild_song_lists[ctx.guild.id].put(player)
-        next_song(ctx.guild.id, ctx.voice_client)
+        if (not ctx.voice_client.is_playing()):
+            ctx.voice_client.play(self.guild_song_lists[ctx.guild.id].peek(), after=lambda x: next_song(ctx.guild.id, ctx.voice_client))
         
     
     @commands.command()
