@@ -111,6 +111,9 @@ class Music(commands.Cog):
             else:
                 song_queue.get()
                 new_video = song_queue.peek()
+
+            if isinstance(new_video, Playlist):
+                new_video = new_video.peek()
             
             if (not song_queue.empty()) and (not voice_client.is_playing()):
                 ctx.voice_client.play(new_video, after=lambda x: next_song(guild_id, voice_client))
@@ -128,7 +131,8 @@ class Music(commands.Cog):
             playlist = await Playlist.search(search_term)
             self.guild_song_lists[ctx.guild.id].put(playlist)
             await ctx.channel.send('Added %i videos to queue :file_folder: %s' % (len(playlist), playlist.title))
-            ctx.voice_client.play(self.guild_song_lists[ctx.guild.id].peek().peek(), after=lambda x: next_song(ctx.guild.id, ctx.voice_client))
+            if (not ctx.voice_client.is_playing()):
+                ctx.voice_client.play(self.guild_song_lists[ctx.guild.id].peek().peek(), after=lambda x: next_song(ctx.guild.id, ctx.voice_client))
 
         #Link
         elif ('https://www.youtube.com/watch?v=' == search_term[:32]):
@@ -205,3 +209,24 @@ class Music(commands.Cog):
             old_count = new_count
         string += '```'
         await ctx.channel.send(string)
+        
+    @commands.command()
+    async def np(self, ctx):
+        if not ctx.voice_client:
+            await ctx.channel.send('Not currently connected to a VC')
+            return
+        if not ctx.voice_client.is_playing():
+            await ctx.channel.send('Not currently playing a song')
+            return
+
+        song_list = self.guild_song_lists[ctx.guild.id]
+        current_song = song_list.peek()
+        if (isinstance(current_song, Playlist)):
+            current_song = current_song.peek()
+            
+        song_name = current_song.data.get('title')
+        await ctx.channel.send(song_name)
+        
+
+
+        
