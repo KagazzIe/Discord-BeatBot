@@ -26,7 +26,8 @@ ytdl_playlist_init = youtube_dl.YoutubeDL({
                                 'playlistend':1}
                                  )
 
-
+playlist_download_batch_size = 5
+playlist_download_threshold = 10
 ffmpeg_options = {
     'options': '-vn',
     'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5'
@@ -35,6 +36,9 @@ ffmpeg_options = {
 class myQueue(queue.Queue):
     def peek(self):
         return self.queue[0]
+
+    def __len__(self):
+        return self.qsize()
 
 class Song(discord.PCMVolumeTransformer):
     def __init__(self, source, *, data, volume=1):
@@ -58,11 +62,13 @@ class Song(discord.PCMVolumeTransformer):
 
 class Playlist():
     def __init__(self, data):
+        self.last_batch_data = data
         self.song_queue = myQueue()
         self.song_queue.put(Song(discord.FFmpegPCMAudio(data['entries'][0]['url'], **ffmpeg_options), data=data['entries'][0]))
-        self.title = data['entries'][0].get('title')
+        self.title = data.get('title')
         self.index = 2
         self.webpage_url = data['webpage_url']
+        self.done_downloading = False
 
     @classmethod
     async def search(self, search_term):
@@ -70,22 +76,31 @@ class Playlist():
         return self(data)
 
     def change_song(self):
-        self.song_queue.get()
-        if len(self) == 0:
-            self.get_songs()
+        return self.song_queue.get()
             
     def get_songs(self):
+        if self.done_downloading == True:
+            return
         ytdl_temp = youtube_dl.YoutubeDL({
                             'format': 'bestaudio/best',
                             'noplaylist': False,
                             'playliststart':self.index,
-                            'playlistend':self.index+4}
+                            'playlistend':self.index+playlist_download_batch_size-1}
                              )
         data = ytdl_temp.extract_info(self.webpage_url, download=False)
         
+        if len(data['entries']) != playlist_download_batch_size:
+            self.done_downloading = True
+        
+        
         for entry in data['entries']:
+            if self.last_batch_data['entries'][0] == entry:
+                self.done_downloading = True
+                break
             self.song_queue.put(Song(discord.FFmpegPCMAudio(entry['url'], **ffmpeg_options), data=entry))
-        self.index += 5
+
+        self.last_batch_data = data
+        self.index += playlist_download_batch_size
         
     def empty(self):
         return self.song_queue.empty()
@@ -100,6 +115,7 @@ class Music(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.guild_song_lists = {}
+        self.guild_currently_playing = {}
 
     @commands.command()
     async def join(self, ctx):
@@ -111,12 +127,14 @@ class Music(commands.Cog):
             await ctx.voice_client.move_to(channel)
         else:
             self.guild_song_lists[ctx.guild.id] = myQueue()
+            self.guild_currently_playing[ctx.guild.id] = None
             await channel.connect()
 
     @commands.command()
     async def leave(self, ctx):
         if ctx.voice_client is not None:
             self.guild_song_lists[ctx.guild.id] = None
+            self.guild_currently_playing[ctx.guild.id] = None
             await ctx.channel.send('Leaving VC :wave:')
             await ctx.voice_client.disconnect()
         else:
@@ -126,24 +144,26 @@ class Music(commands.Cog):
     async def play(self, ctx, *, search_term):
         def next_song(guild_id, voice_client):
             song_queue = self.guild_song_lists[ctx.guild.id]
-            old_player = song_queue.peek()
-            get_more_songs = False
-            if (isinstance(old_player, Playlist) and (len(old_player)!=1)):
-                old_player.change_song()
-                new_video = old_player.peek()
-                if len(old_player) <= 2:
-                    get_more_songs = True
-            else:
+            if len(song_queue) == 0:
+                return
+            player = song_queue.peek()
+            need_songs = False
+            
+            if len(player) == 0:
                 song_queue.get()
-                new_video = song_queue.peek()
 
-            if isinstance(new_video, Playlist):
-                new_video = new_video.peek()
-            if (not song_queue.empty()) and (not voice_client.is_playing()):
-                ctx.voice_client.play(new_video, after=lambda x: next_song(guild_id, voice_client))
-
-            if get_more_songs == True:
-                old_player.get_songs()
+            if isinstance(player, Playlist):
+                if len(player)<playlist_download_threshold:
+                    need_songs = True
+                song = player.change_song()
+            else:
+                song = song_queue.get()
+            self.guild_currently_playing[ctx.guild.id] = song
+            if song and (not voice_client.is_playing()):
+                ctx.voice_client.play(song, after=lambda x: next_song(guild_id, voice_client))
+            if need_songs == True:
+                player.get_songs()
+            
                 
         # If Beatbot is currently playing music in a channel that the requester is not in      
         if (ctx.voice_client) and ctx.voice_client.is_playing() and (ctx.author.voice.channel != ctx.voice_client.channel):
@@ -158,9 +178,7 @@ class Music(commands.Cog):
             playlist = await Playlist.search(search_term)
             self.guild_song_lists[ctx.guild.id].put(playlist)
             await ctx.channel.send('Added playlist to queue :file_folder: %s' % (playlist.title))
-            if (not ctx.voice_client.is_playing()):
-                ctx.voice_client.play(self.guild_song_lists[ctx.guild.id].peek().peek(), after=lambda x: next_song(ctx.guild.id, ctx.voice_client))
-            playlist.get_songs()
+            
 
         #Link
         elif ('https://www.youtube.com/watch?v=' == search_term[:32]):
@@ -169,6 +187,7 @@ class Music(commands.Cog):
             
             await ctx.channel.send('Added video to queue :file_folder: %s' % (player.data.get('title')))
             self.guild_song_lists[ctx.guild.id].put(player)
+            
 
         #Search Term
         else:
@@ -176,9 +195,10 @@ class Music(commands.Cog):
             player = await Song.search(search_term)
             await ctx.channel.send('Added video to queue :file_folder: %s' % (player.data.get('title')))
             self.guild_song_lists[ctx.guild.id].put(player)
-        
         if (not ctx.voice_client.is_playing()):
-            ctx.voice_client.play(self.guild_song_lists[ctx.guild.id].peek(), after=lambda x: next_song(ctx.guild.id, ctx.voice_client))
+            next_song(ctx.guild.id, ctx.voice_client)
+        
+       
         
     
     @commands.command()
@@ -187,7 +207,7 @@ class Music(commands.Cog):
             await ctx.channel.send('Pausing Song :pause_button:')
             ctx.voice_client.pause()
         else:
-            ctx.channel.send('I am not connected to a VC')
+            await ctx.channel.send('I am not connected to a VC')
 
     @commands.command()
     async def resume(self, ctx):
@@ -195,16 +215,17 @@ class Music(commands.Cog):
             await ctx.channel.send('Resuming Song :arrow_right:')
             ctx.voice_client.resume()
         else:
-            ctx.channel.send('I am not connected to a VC')
+            await ctx.channel.send('I am not connected to a VC')
 
     @commands.command()
     async def stop(self, ctx):
         if ctx.voice_client:
             await ctx.channel.send('Stoping Music :stop_button:')
             self.guild_song_lists[ctx.guild.id] = myQueue()
+            self.guild_currently_playing[ctx.guild.id] = None
             ctx.voice_client.stop()
         else:
-            ctx.channel.send('I am not connected to a VC')
+            await ctx.channel.send('I am not connected to a VC')
         
     @commands.command()
     async def skip(self, ctx):
@@ -212,7 +233,7 @@ class Music(commands.Cog):
             await ctx.channel.send('Skipping Song :fast_forward:')
             ctx.voice_client.stop()
         else:
-            ctx.channel.send('I am not connected to a VC')
+            await ctx.channel.send('I am not connected to a VC')
 
     @commands.command()
     async def queue(self, ctx):
@@ -224,17 +245,13 @@ class Music(commands.Cog):
             return
         
         string = '```'
-        song_list = list(self.guild_song_lists[ctx.guild.id].queue)
-        old_count = 0
-        new_count = 0
+        song_list = [self.guild_currently_playing[ctx.guild.id]] + list(self.guild_song_lists[ctx.guild.id].queue)
+
         for i in range(len(song_list)):
-            old_count += 1
-            new_count += len(song_list[i])
-            if old_count == new_count:
-                string += '%i : %s\n' % (new_count, song_list[i].title)
+            if isinstance(song_list[i], Playlist):
+                string += 'On song #%i in: %s\n' % (song_list[i].index-len(song_list[i]), song_list[i].title)
             else:
-                string += '%i-%i : %s\n' % (old_count, new_count, song_list[i].title)
-            old_count = new_count
+                string += '%s\n' %(song_list[i].title)
         string += '```'
         await ctx.channel.send(string)
         
