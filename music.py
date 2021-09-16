@@ -8,18 +8,24 @@ import queue
 
 # These options are originally from
 # https://stackoverflow.com/questions/66070749/how-to-fix-discord-music-bot-that-stops-playing-before-the-song-is-actually-over
-ytdl_format_options_search = {
-    'format': 'bestaudio/best',
-    'noplaylist': True,
-    'default_search': 'auto'
-}
-ytdl_search = youtube_dl.YoutubeDL(ytdl_format_options_search)
 
-ytdl_format_options_link = {
-    'format': 'bestaudio/best',
-    'noplaylist': False
-}
-ytdl_link = youtube_dl.YoutubeDL(ytdl_format_options_link)
+ytdl_search = youtube_dl.YoutubeDL({'format': 'bestaudio/best',
+                                    'noplaylist': True,
+                                    'default_search': 'auto'}
+                                   )
+
+ytdl_link = youtube_dl.YoutubeDL({
+                                'format': 'bestaudio/best',
+                                'noplaylist': False}
+                                 )
+
+ytdl_playlist_init = youtube_dl.YoutubeDL({
+                                'format': 'bestaudio/best',
+                                'noplaylist': False,
+                                'playliststart':1,
+                                'playlistend':1}
+                                 )
+
 
 ffmpeg_options = {
     'options': '-vn',
@@ -35,6 +41,7 @@ class Song(discord.PCMVolumeTransformer):
         super().__init__(source, volume)
         self.data = data
         self.url = data.get('url')
+        self.title = data.get('title')
 
     @classmethod
     async def search(self, search_term):
@@ -51,20 +58,35 @@ class Song(discord.PCMVolumeTransformer):
 
 class Playlist():
     def __init__(self, data):
-        self.data = data
         self.song_queue = myQueue()
-        for entry in self.data['entries']:
-            self.song_queue.put(Song(discord.FFmpegPCMAudio(entry['url'], **ffmpeg_options), data=entry))
-        self.title = self.data.get('title')
+        self.song_queue.put(Song(discord.FFmpegPCMAudio(data['entries'][0]['url'], **ffmpeg_options), data=data['entries'][0]))
+        self.title = data['entries'][0].get('title')
+        self.index = 2
+        self.webpage_url = data['webpage_url']
 
     @classmethod
     async def search(self, search_term):
-        data = ytdl_link.extract_info(search_term, download=False)
+        data = ytdl_playlist_init.extract_info(search_term, download=False)
         return self(data)
 
     def change_song(self):
         self.song_queue.get()
-
+        if len(self) == 0:
+            self.get_songs()
+            
+    def get_songs(self):
+        ytdl_temp = youtube_dl.YoutubeDL({
+                            'format': 'bestaudio/best',
+                            'noplaylist': False,
+                            'playliststart':self.index,
+                            'playlistend':self.index+4}
+                             )
+        data = ytdl_temp.extract_info(self.webpage_url, download=False)
+        
+        for entry in data['entries']:
+            self.song_queue.put(Song(discord.FFmpegPCMAudio(entry['url'], **ffmpeg_options), data=entry))
+        self.index += 5
+        
     def empty(self):
         return self.song_queue.empty()
 
@@ -105,18 +127,23 @@ class Music(commands.Cog):
         def next_song(guild_id, voice_client):
             song_queue = self.guild_song_lists[ctx.guild.id]
             old_player = song_queue.peek()
+            get_more_songs = False
             if (isinstance(old_player, Playlist) and (len(old_player)!=1)):
                 old_player.change_song()
                 new_video = old_player.peek()
+                if len(old_player) <= 2:
+                    get_more_songs = True
             else:
                 song_queue.get()
                 new_video = song_queue.peek()
 
             if isinstance(new_video, Playlist):
                 new_video = new_video.peek()
-            
             if (not song_queue.empty()) and (not voice_client.is_playing()):
                 ctx.voice_client.play(new_video, after=lambda x: next_song(guild_id, voice_client))
+
+            if get_more_songs == True:
+                old_player.get_songs()
                 
         # If Beatbot is currently playing music in a channel that the requester is not in      
         if (ctx.voice_client) and ctx.voice_client.is_playing() and (ctx.author.voice.channel != ctx.voice_client.channel):
@@ -130,9 +157,10 @@ class Music(commands.Cog):
             await ctx.channel.send('Getting Playlist at link :movie_camera: `%s`' % search_term)
             playlist = await Playlist.search(search_term)
             self.guild_song_lists[ctx.guild.id].put(playlist)
-            await ctx.channel.send('Added %i videos to queue :file_folder: %s' % (len(playlist), playlist.title))
+            await ctx.channel.send('Added playlist to queue :file_folder: %s' % (playlist.title))
             if (not ctx.voice_client.is_playing()):
                 ctx.voice_client.play(self.guild_song_lists[ctx.guild.id].peek().peek(), after=lambda x: next_song(ctx.guild.id, ctx.voice_client))
+            playlist.get_songs()
 
         #Link
         elif ('https://www.youtube.com/watch?v=' == search_term[:32]):
@@ -203,9 +231,9 @@ class Music(commands.Cog):
             old_count += 1
             new_count += len(song_list[i])
             if old_count == new_count:
-                string += '%i : %s\n' % (new_count, song_list[i].data.get('title'))
+                string += '%i : %s\n' % (new_count, song_list[i].title)
             else:
-                string += '%i-%i : %s\n' % (old_count, new_count, song_list[i].data.get('title'))
+                string += '%i-%i : %s\n' % (old_count, new_count, song_list[i].title)
             old_count = new_count
         string += '```'
         await ctx.channel.send(string)
