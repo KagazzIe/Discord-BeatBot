@@ -116,6 +116,7 @@ class Music(commands.Cog):
         self.bot = bot
         self.guild_song_lists = {}
         self.guild_currently_playing = {}
+        #self.guild_last_active = {}
 
     @commands.command()
     async def join(self, ctx):
@@ -163,7 +164,6 @@ class Music(commands.Cog):
                 ctx.voice_client.play(song, after=lambda x: next_song(guild_id, voice_client))
             if need_songs == True:
                 player.get_songs()
-            
                 
         # If Beatbot is currently playing music in a channel that the requester is not in      
         if (ctx.voice_client) and ctx.voice_client.is_playing() and (ctx.author.voice.channel != ctx.voice_client.channel):
@@ -178,7 +178,6 @@ class Music(commands.Cog):
             playlist = await Playlist.search(search_term)
             self.guild_song_lists[ctx.guild.id].put(playlist)
             await ctx.channel.send('Added playlist to queue :file_folder: %s' % (playlist.title))
-            
 
         #Link
         elif ('https://www.youtube.com/watch?v=' == search_term[:32]):
@@ -187,7 +186,6 @@ class Music(commands.Cog):
             
             await ctx.channel.send('Added video to queue :file_folder: %s' % (player.data.get('title')))
             self.guild_song_lists[ctx.guild.id].put(player)
-            
 
         #Search Term
         else:
@@ -199,7 +197,6 @@ class Music(commands.Cog):
             next_song(ctx.guild.id, ctx.voice_client)
         
        
-        
     
     @commands.command()
     async def pause(self, ctx):
@@ -273,5 +270,10 @@ class Music(commands.Cog):
         await ctx.channel.send(song_name)
         
 
-
+    @commands.Cog.listener()
+    async def on_voice_state_update(self, member, before, after):
+        if before.channel and (len(before.channel.members)==1) and (self.bot.user.id in [x.id for x in before.channel.members]):
+            self.guild_song_lists[before.channel.guild.id] = None
+            self.guild_currently_playing[before.channel.guild.id] = None
+            await before.channel.guild.voice_client.disconnect()
         
