@@ -3,9 +3,6 @@ import youtube_dl
 import time
 from discord.ext import commands
 import queue
-#Youtube DL Needed
-#Discord Library Needed
-
 # These options are originally from
 # https://stackoverflow.com/questions/66070749/how-to-fix-discord-music-bot-that-stops-playing-before-the-song-is-actually-over
 
@@ -145,8 +142,11 @@ class Music(commands.Cog):
     async def play(self, ctx, *, search_term):
         def next_song(guild_id, voice_client):
             song_queue = self.guild_song_lists[ctx.guild.id]
+            if song_queue == None:
+                return
             if len(song_queue) == 0:
                 return
+            
             player = song_queue.peek()
             need_songs = False
             
@@ -200,35 +200,43 @@ class Music(commands.Cog):
     
     @commands.command()
     async def pause(self, ctx):
-        if ctx.voice_client:
+        if ctx.voice_client and (ctx.author.voice.channel == ctx.voice_client.channel):
             await ctx.channel.send('Pausing Song :pause_button:')
             ctx.voice_client.pause()
+        elif ctx.voice_client:
+            await ctx.channel.send('You are not in the correct VC')
         else:
             await ctx.channel.send('I am not connected to a VC')
 
     @commands.command()
     async def resume(self, ctx):
-        if ctx.voice_client:
+        if ctx.voice_client and (ctx.author.voice.channel == ctx.voice_client.channel):
             await ctx.channel.send('Resuming Song :arrow_right:')
             ctx.voice_client.resume()
+        elif ctx.voice_client:
+            await ctx.channel.send('You are not in the correct VC')
         else:
             await ctx.channel.send('I am not connected to a VC')
 
     @commands.command()
     async def stop(self, ctx):
-        if ctx.voice_client:
+        if ctx.voice_client and (ctx.author.voice.channel == ctx.voice_client.channel):
             await ctx.channel.send('Stoping Music :stop_button:')
             self.guild_song_lists[ctx.guild.id] = myQueue()
             self.guild_currently_playing[ctx.guild.id] = None
             ctx.voice_client.stop()
+        elif ctx.voice_client:
+            await ctx.channel.send('You are not in the correct VC')
         else:
             await ctx.channel.send('I am not connected to a VC')
         
     @commands.command()
     async def skip(self, ctx):
-        if ctx.voice_client:
+        if ctx.voice_client and (ctx.author.voice.channel == ctx.voice_client.channel):
             await ctx.channel.send('Skipping Song :fast_forward:')
             ctx.voice_client.stop()
+        elif ctx.voice_client:
+            await ctx.channel.send('You are not in the correct VC')
         else:
             await ctx.channel.send('I am not connected to a VC')
 
@@ -261,19 +269,33 @@ class Music(commands.Cog):
             await ctx.channel.send('Not currently playing a song')
             return
 
-        song_list = self.guild_song_lists[ctx.guild.id]
-        current_song = song_list.peek()
-        if (isinstance(current_song, Playlist)):
-            current_song = current_song.peek()
+        current_song = self.guild_currently_playing[ctx.guild.id]
             
         song_name = current_song.data.get('title')
-        await ctx.channel.send(song_name)
-        
+        await ctx.channel.send("Now Listening to:musical_note: %s" % song_name)
 
+    @commands.command()
+    async def skip_playlist(self, ctx):
+        if ctx.voice_client and (ctx.author.voice.channel == ctx.voice_client.channel):
+            await ctx.channel.send('Skipping Songs :fast_forward:')
+            song_queue = self.guild_song_lists[ctx.guild.id]
+            top_item = song_queue.peek()
+            if isinstance(top_item, Playlist) and (top_item.index > 2):
+                song_queue.get()
+            ctx.voice_client.stop()
+        elif ctx.voice_client:
+            await ctx.channel.send('You are not in the correct VC')
+        else:
+            await ctx.channel.send('I am not connected to a VC')
+    
+    
     @commands.Cog.listener()
     async def on_voice_state_update(self, member, before, after):
         if before.channel and (len(before.channel.members)==1) and (self.bot.user.id in [x.id for x in before.channel.members]):
+            if after.channel and (self.bot.user.id in [x.id for x in after.channel.members]):
+                return
+            print('Leave Call Triggered')
             self.guild_song_lists[before.channel.guild.id] = None
             self.guild_currently_playing[before.channel.guild.id] = None
             await before.channel.guild.voice_client.disconnect()
-        
+    
