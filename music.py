@@ -2,7 +2,7 @@ import discord
 import youtube_dl
 import time
 from discord.ext import commands
-import queue
+from collections import deque
 # These options are originally from
 # https://stackoverflow.com/questions/66070749/how-to-fix-discord-music-bot-that-stops-playing-before-the-song-is-actually-over
 
@@ -30,13 +30,6 @@ ffmpeg_options = {
     'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5'
 }
 
-class myQueue(queue.Queue):
-    def peek(self):
-        return self.queue[0]
-
-    def __len__(self):
-        return self.qsize()
-
 class Song(discord.PCMVolumeTransformer):
     def __init__(self, source, *, data, volume=1):
         super().__init__(source, volume)
@@ -54,14 +47,15 @@ class Song(discord.PCMVolumeTransformer):
         data = ytdl_link.extract_info(search_term, download=False)
         return self(discord.FFmpegPCMAudio(data['url'], **ffmpeg_options), data=data)
 
+    #TODO: Make this the length of song, change $play to not rely on it
     def __len__(self):
         return 1
 
 class Playlist():
     def __init__(self, data):
         self.last_batch_data = data
-        self.song_queue = myQueue()
-        self.song_queue.put(Song(discord.FFmpegPCMAudio(data['entries'][0]['url'], **ffmpeg_options), data=data['entries'][0]))
+        self.song_deque = deque()
+        self.song_deque.append(Song(discord.FFmpegPCMAudio(data['entries'][0]['url'], **ffmpeg_options), data=data['entries'][0]))
         self.title = data.get('title')
         self.index = 2
         self.webpage_url = data['webpage_url']
@@ -73,16 +67,18 @@ class Playlist():
         return self(data)
 
     def change_song(self):
-        return self.song_queue.get()
+        return self.song_deque.pop()
             
     def get_songs(self):
         if self.done_downloading == True:
             return
+        ind = self.index
+        self.index += playlist_download_batch_size
         ytdl_temp = youtube_dl.YoutubeDL({
                             'format': 'bestaudio/best',
                             'noplaylist': False,
-                            'playliststart':self.index,
-                            'playlistend':self.index+playlist_download_batch_size-1}
+                            'playliststart':ind,
+                            'playlistend':ind+playlist_download_batch_size-1}
                              )
         data = ytdl_temp.extract_info(self.webpage_url, download=False)
         
@@ -94,19 +90,18 @@ class Playlist():
             if self.last_batch_data['entries'][0] == entry:
                 self.done_downloading = True
                 break
-            self.song_queue.put(Song(discord.FFmpegPCMAudio(entry['url'], **ffmpeg_options), data=entry))
+            self.song_deque.append(Song(discord.FFmpegPCMAudio(entry['url'], **ffmpeg_options), data=entry))
 
         self.last_batch_data = data
-        self.index += playlist_download_batch_size
         
     def empty(self):
-        return self.song_queue.empty()
+        return True if len(self.song_deque)==0 else False
 
     def peek(self):
-        return self.song_queue.peek()
+        return self.song_deque[0]
 
     def __len__(self):
-        return self.song_queue.qsize()
+        return len(self.song_deque)
 
 class Music(commands.Cog):
     def __init__(self, bot):
@@ -124,7 +119,7 @@ class Music(commands.Cog):
         if ctx.voice_client is not None:
             await ctx.voice_client.move_to(channel)
         else:
-            self.guild_song_lists[ctx.guild.id] = myQueue()
+            self.guild_song_lists[ctx.guild.id] = deque()
             self.guild_currently_playing[ctx.guild.id] = None
             await channel.connect()
 
@@ -147,18 +142,21 @@ class Music(commands.Cog):
             if len(song_queue) == 0:
                 return
             
-            player = song_queue.peek()
+            player = song_queue[0]
             need_songs = False
-            
-            if len(player) == 0:
-                song_queue.get()
 
+            #If it is an empty playlist
+            if len(player) == 0:
+                song_queue.pop()
+
+            #If the next element is a playlist
             if isinstance(player, Playlist):
+                #If the playlist needs to download more songs
                 if len(player)<playlist_download_threshold:
                     need_songs = True
                 song = player.change_song()
             else:
-                song = song_queue.get()
+                song = song_queue.pop()
             self.guild_currently_playing[ctx.guild.id] = song
             if song and (not voice_client.is_playing()):
                 ctx.voice_client.play(song, after=lambda x: next_song(guild_id, voice_client))
@@ -176,7 +174,7 @@ class Music(commands.Cog):
         if (('&list=' in search_term) and ('https://www.youtube.com/watch?v=' == search_term[:32])):
             await ctx.channel.send('Getting Playlist at link :movie_camera: `%s`' % search_term)
             playlist = await Playlist.search(search_term)
-            self.guild_song_lists[ctx.guild.id].put(playlist)
+            self.guild_song_lists[ctx.guild.id].append(playlist)
             await ctx.channel.send('Added playlist to queue :file_folder: %s' % (playlist.title))
 
         #Link
@@ -185,14 +183,14 @@ class Music(commands.Cog):
             player = await Song.fetch_link(search_term)
             
             await ctx.channel.send('Added video to queue :file_folder: %s' % (player.data.get('title')))
-            self.guild_song_lists[ctx.guild.id].put(player)
+            self.guild_song_lists[ctx.guild.id].append(player)
 
         #Search Term
         else:
             await ctx.channel.send('Searching :mag_right: `%s`' % search_term)
             player = await Song.search(search_term)
             await ctx.channel.send('Added video to queue :file_folder: %s' % (player.data.get('title')))
-            self.guild_song_lists[ctx.guild.id].put(player)
+            self.guild_song_lists[ctx.guild.id].append(player)
         if (not ctx.voice_client.is_playing()):
             next_song(ctx.guild.id, ctx.voice_client)
         
@@ -222,7 +220,7 @@ class Music(commands.Cog):
     async def stop(self, ctx):
         if ctx.voice_client and (ctx.author.voice.channel == ctx.voice_client.channel):
             await ctx.channel.send('Stoping Music :stop_button:')
-            self.guild_song_lists[ctx.guild.id] = myQueue()
+            self.guild_song_lists[ctx.guild.id] = deque()
             self.guild_currently_playing[ctx.guild.id] = None
             ctx.voice_client.stop()
         elif ctx.voice_client:
@@ -245,12 +243,14 @@ class Music(commands.Cog):
         if not ctx.voice_client:
             await ctx.channel.send('Not currently connected to a VC')
             return
-        if self.guild_song_lists[ctx.guild.id].empty():
+        if len(self.guild_song_lists[ctx.guild.id])==0:
             await ctx.channel.send('No songs are currently in queue')
             return
-        
+
+        #here down is aincent code from using queues instead of deques
+        #it works but its not optimized for deques
         string = '```'
-        song_list = [self.guild_currently_playing[ctx.guild.id]] + list(self.guild_song_lists[ctx.guild.id].queue)
+        song_list = [self.guild_currently_playing[ctx.guild.id]] + list(self.guild_song_lists[ctx.guild.id])
 
         for i in range(len(song_list)):
             if isinstance(song_list[i], Playlist):
@@ -279,9 +279,9 @@ class Music(commands.Cog):
         if ctx.voice_client and (ctx.author.voice.channel == ctx.voice_client.channel):
             await ctx.channel.send('Skipping Songs :fast_forward:')
             song_queue = self.guild_song_lists[ctx.guild.id]
-            top_item = song_queue.peek()
+            top_item = song_queue[0]
             if isinstance(top_item, Playlist) and (top_item.index > 2):
-                song_queue.get()
+                song_queue.pop()
             ctx.voice_client.stop()
         elif ctx.voice_client:
             await ctx.channel.send('You are not in the correct VC')
