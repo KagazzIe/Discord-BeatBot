@@ -1,1 +1,1 @@
-With Groovy bot shutting down because of a C&D from Youtube, I thought it would be fun to make my own discord music bot, in case other music bots also go down.
+With most mainstream music bots shutting down because of a cease and desist from Youtube, the only way to have a discord music bot is to make/host it yourself. That is what this is.
