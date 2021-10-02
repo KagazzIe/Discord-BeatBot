@@ -2,6 +2,15 @@ from collections import deque
 import discord
 import youtube_dl
 from music_objects import *
+from threading import Lock
+
+
+
+import inspect
+
+
+
+
 # YTDL options https://github.com/ytdl-org/youtube-dl/blob/3e4cedf9e8cd3157df2457df7274d0c842421945/youtube_dl/YoutubeDL.py#L137-L312
 ytdl_search = youtube_dl.YoutubeDL({'format': 'bestaudio/best',
                                     'noplaylist': True,
@@ -12,6 +21,7 @@ ytdl_metadata_search = youtube_dl.YoutubeDL({'format': 'bestaudio/best',
                                     'noplaylist': True,
                                     'default_search': 'auto',
                                     'skip_download':True,
+                                    'simulate':True,
                                     'quiet':True}
                                    )
 
@@ -24,6 +34,7 @@ ytdl_metadata_link = youtube_dl.YoutubeDL({
                                 'format': 'bestaudio/best',
                                 'noplaylist': True,
                                 'skip_download':True,
+                                'simulate':True,
                                 'quiet':True}
                                  )
 
@@ -33,6 +44,7 @@ ytdl_metadata_playlist = youtube_dl.YoutubeDL({
                                 'playliststart':1,
                                 'playlistend':1,
                                 'skip_download':True,
+                                'simulate':True,
                                 'quiet':True}
                                  )
 
@@ -69,7 +81,7 @@ class Song(discord.PCMVolumeTransformer):
         Will downlod the song.
         Will also get the title and url
         """
-        print('Downloading Song')
+        #print('Downloading Song')
         if 'https://www.youtube.com/watch?v=' in self.search_term:
             data = self.fetch_link()
         else:
@@ -85,7 +97,7 @@ class Song(discord.PCMVolumeTransformer):
         """
         if self._title and self._url:
             return
-        print('Downloading Song Metadata')
+        #print('Downloading Song Metadata')
         if 'https://www.youtube.com/watch?v=' in self.search_term:
             data = ytdl_metadata_link.extract_info(self.search_term, download=False)
         else:
@@ -135,21 +147,31 @@ class Playlist():
     def __init__(self, playlist_link, start=1,pre_download=0):
         self._index = start
         self._link = playlist_link
+        self._songindex = 1
         self._done_downloading = False
-        self._song_deque = deque()
+        self._songs = {}
         self._last_batch_data = None
         self._done_downloading = False
         self.active_song = None
         self._title = None
+        #self._id = None
+
+        self.songs_lock = Lock()
+        self.index_lock = Lock()
+        self.previous_batch_lock = Lock()
+        self.song_index_lock = Lock()
     
     def download_metadata(self):
         """
         Will download the meta data for the playlist
         """
-        print('Downloading Playlist Metadata')
-        data = ytdl_metadata_playlist.extract_info(self._link, download=False)
-        self._title = data.get('title')
-
+        if not self._title:
+            #print('Downloading Playlist Metadata')
+            data = ytdl_metadata_playlist.extract_info(self._link, download=False)
+            self._title = data.get('title')
+            self._link = data.get('id')
+            del data
+            
     def change_song(self):
         """
         Will take a song form the pre-downloaded songs and move it to self.active_song
@@ -157,8 +179,17 @@ class Playlist():
         """
         if len(self) == 0:
             return False
-        print('pooping out song')
-        self.active_song = self._song_deque.popleft()
+        #print('pooping out song')
+        self.song_index_lock.acquire()
+        ind = self._songindex
+        self._songindex += 1
+        self.song_index_lock.release()
+
+        self.songs_lock.acquire()
+        self.active_song = self._songs.pop(ind)
+        self.songs_lock.release()
+
+                
         return self.active_song
             
     def download(self,n):
@@ -170,9 +201,19 @@ class Playlist():
         """
         if self._done_downloading == True:
             return 0
-        print('Downloading %i songs in playlist' % n)
+
+        self.index_lock.acquire()
         ind = self._index
         self._index += n
+        self.index_lock.release()
+
+        self.previous_batch_lock.acquire()
+        last_batch = self._last_batch_data
+        self.previous_batch_lock.release()
+        curframe = inspect.currentframe()
+        calframe = inspect.getouterframes(curframe, 2)
+        #print(('Downloading song %i to song %i in playlist\n\n' % (ind, ind+n-1)) + 'download caller name:' + calframe[1][3])
+
         ytdl_temp = youtube_dl.YoutubeDL({
                             'format': 'bestaudio/best',
                             'noplaylist': False,
@@ -181,27 +222,36 @@ class Playlist():
                             'quiet':True}
                              )
         data = ytdl_temp.extract_info(self._link,download=False)
-        if len(data['entries']) != n:
-            self._done_downloading = True
-
-        counter = 0
-        for entry in data['entries']:
-            if (self._last_batch_data != None) and self._last_batch_data['entries'][0] == entry:
+        lst = []
+        i = 0
+        while i < n:
+            if (last_batch != None) and last_batch['entries'][0] == data.get('entry'):
                 self._done_downloading = True
                 break
-            counter += 1
-            self._song_deque.append(Song('', entry))
-
-        self._last_batch_data = data
+            lst.append([ind+i,Song('',data['entries'][i])])
+            i += 1
+        
         if not self._title:
             self._title = data.get('title')
-        return counter
+
+
+        self.songs_lock.acquire()
+        for item in lst:
+            self._songs[item[0]] = item[1]
+        self.songs_lock.release()
+        
+        self.previous_batch_lock.acquire()
+        self._last_batch_data = data
+        self.previous_batch_lock.release()
+        #print(self)
+        #print('-----------')
+        return i
 
     def __len__(self):
         """
         returns how many songs the playlist has Pre-Downloaded
         """
-        return len(self._song_deque)
+        return len(self._songs)
 
     @property
     def current_song(self):
@@ -226,8 +276,11 @@ class Playlist():
         """
         return self._index-len(self)
 
+    def __str__(self):
+        return str(self._songs)
+
 class Song_Queue(deque):
-    def __init__(self, min_buffer = 2,batch_size = 1):
+    def __init__(self, min_buffer = 1,batch_size = 1):
         self.min_buffer = min_buffer
         self.batch_size = batch_size
 
@@ -252,34 +305,27 @@ class Song_Queue(deque):
 
         If self._downloaded_songs then change_song() will download 1 song
         """
+        #print(self._downloaded_songs)
         if isinstance(self.active_song, Playlist):
-            has_songs = True
+            has_songs = 1
             if len(self.active_song) == 0:
-                has_songs = self.active_song.download(self.batch_size)
-            if has_songs:
-                song = self.active_song.change_song()
-                download_more = False
-                if len(self.active_song)+len(self._downloaded_songs)-1 < self.min_buffer:
-                    download_more = True
-                
-                return song, download_more
-        if len(self)==0:
-            #empty
-            return False, False
-        if len(self._downloaded_songs) == 0:
-            self.download(1)
-        
-        song = self._downloaded_songs.popleft()
-        self.active_song = song
-        if isinstance(song, Playlist):
-            song = song.change_song()
-
-        download_more = False
-
-        if len(self._downloaded_songs) < self.min_buffer:
-            download_more = True
+                return False
             
-        return song, download_more
+            if has_songs > 0:
+                song = self.active_song.change_song()
+                
+                return song
+
+        if len(self._downloaded_songs) == 0:
+            self.active_song = None
+            return False
+        
+        elem = self._downloaded_songs.popleft()
+        self.active_song = elem
+        if isinstance(elem, Playlist):
+            elem = elem.change_song()
+            
+        return elem
     
     def remove_element(self, n):
         """
@@ -287,7 +333,7 @@ class Song_Queue(deque):
         """
         if n == 0:
             self.active_song = None
-        if n > len(self):
+        if n > (len(self._downloaded_songs) + len(self._not_downloaded_songs)):
             return False
         counter = 0
         while(counter < len(self._downloaded_songs)):
@@ -324,6 +370,8 @@ class Song_Queue(deque):
             self._not_downloaded_songs.popleft()
             self._downloaded_songs.append(elem)
 
+        return i
+
             
 
     def add_bottom(self, elem):
@@ -333,14 +381,8 @@ class Song_Queue(deque):
         downloads the meta data of the new song
         """
         self._not_downloaded_songs.append(elem)
-        if isinstance(self.active_song, Playlist):
-            l = len(self.active_song)
-        else:
-            l = 1
-            
-        if len(self._downloaded_songs)+l < self.min_buffer:
+        if len(self)<self.min_buffer:
             self.download(self.batch_size)
-
         elem.download_metadata()
 
     def add_top(self, elem):
@@ -372,11 +414,11 @@ class Song_Queue(deque):
             self._downloaded_songs.appendleft(elem)
         
     def __len__(self):
-        """
-        returns the both song lists. THIS DOES NOT INCLUDE THE Len() OF THE ACTIVE SONG
-        if the active song is a playlist, then some/all of the predownloaded songs might be in the active song playlist
-        """
-        return len(self._downloaded_songs) + len(self._not_downloaded_songs)
+        elem = self.active_song
+        l = 0
+        if isinstance(elem, Playlist):
+            l = len(elem)-1
+        return len(self._downloaded_songs) + l
 
 
     def __str__(self):

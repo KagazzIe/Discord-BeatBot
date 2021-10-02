@@ -47,6 +47,7 @@ class Music(commands.Cog):
         s = Song(search_term)
         self.guilds_info[ctx.guild.id].song_queue.add_bottom(s)
         await ctx.channel.send('Added song to queue :file_folder:')
+        
         if (not self.guilds_info[ctx.guild.id].current_song):
             self.next_song(ctx.guild.id, ctx.voice_client)
 
@@ -196,18 +197,25 @@ class Music(commands.Cog):
         if before.channel and (len(before.channel.members)==1) and (self.bot.user.id in [x.id for x in before.channel.members]):
             if after.channel and (self.bot.user.id in [x.id for x in after.channel.members]):
                 return
-            print('Leave Call Triggered')
+            ('Leave Call Triggered')
             self.guilds_info[before.channel.guild.id] = None
             await before.channel.guild.voice_client.disconnect()
 
     def next_song(self, guild_id, voice_client):
-        print('Next song')
+        curframe = inspect.currentframe()
+        calframe = inspect.getouterframes(curframe, 2)
+        #print('next_song caller name:' + calframe[1][3])
         song_queue = self.guilds_info[guild_id].song_queue
-       
-        song, need_songs = song_queue.change_song()
+
+        preloaded_count = len(song_queue)
+        if preloaded_count == 0:
+            preloaded_count += 1
+            song_queue.download(1)
+        song = song_queue.change_song()
+        preloaded_count -= 1
         
         if song and (not voice_client.is_playing()):
             voice_client.play(song, after=lambda x: self.next_song(guild_id, voice_client))
-        if need_songs:
+        if preloaded_count < song_queue.min_buffer:
             song_queue.download(song_queue.batch_size)
     
