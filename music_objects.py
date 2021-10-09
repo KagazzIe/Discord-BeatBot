@@ -4,13 +4,6 @@ import youtube_dl
 from music_objects import *
 from threading import Lock
 
-
-
-import inspect
-
-
-
-
 # YTDL options https://github.com/ytdl-org/youtube-dl/blob/3e4cedf9e8cd3157df2457df7274d0c842421945/youtube_dl/YoutubeDL.py#L137-L312
 ytdl_search = youtube_dl.YoutubeDL({'format': 'bestaudio/best',
                                     'noplaylist': True,
@@ -210,9 +203,6 @@ class Playlist():
         self.previous_batch_lock.acquire()
         last_batch = self._last_batch_data
         self.previous_batch_lock.release()
-        curframe = inspect.currentframe()
-        calframe = inspect.getouterframes(curframe, 2)
-        #print(('Downloading song %i to song %i in playlist\n\n' % (ind, ind+n-1)) + 'download caller name:' + calframe[1][3])
 
         ytdl_temp = youtube_dl.YoutubeDL({
                             'format': 'bestaudio/best',
@@ -243,8 +233,6 @@ class Playlist():
         self.previous_batch_lock.acquire()
         self._last_batch_data = data
         self.previous_batch_lock.release()
-        #print(self)
-        #print('-----------')
         return i
 
     def __len__(self):
@@ -288,6 +276,7 @@ class Song_Queue(deque):
         self._not_downloaded_songs = deque()
 
         self.active_song = None
+        self.main_lock = Lock()
 
     def clear(self):
         """
@@ -298,14 +287,7 @@ class Song_Queue(deque):
         self.active_song = None
 
     def change_song(self):
-        """
-        Change song will move a song from self._downloaded_songs to self.active_song
-        it will return the song it moved
-        it will return a variable called download_more, which tells the user if the buffer is below the minimum
-
-        If self._downloaded_songs then change_song() will download 1 song
-        """
-        #print(self._downloaded_songs)
+        self.main_lock.acquire()
         if isinstance(self.active_song, Playlist):
             has_songs = 1
             if len(self.active_song) == 0:
@@ -324,13 +306,14 @@ class Song_Queue(deque):
         self.active_song = elem
         if isinstance(elem, Playlist):
             elem = elem.change_song()
-            
+        self.main_lock.release()
         return elem
     
     def remove_element(self, n):
         """
         Removes the Nth element from the song_queue
         """
+        self.main_lock.acquire()
         if n == 0:
             self.active_song = None
         if n > (len(self._downloaded_songs) + len(self._not_downloaded_songs)):
@@ -347,7 +330,8 @@ class Song_Queue(deque):
             if n == 0:
                 del self._not_downloaded_songs[counter]
             counter += 1
-            
+        self.main_lock.release()
+        
     def download(self,n):
         """
         Downloads the next n songs from self._not_downloaded_songs and puts them into self._downloaded_songs
