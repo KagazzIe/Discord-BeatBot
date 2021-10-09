@@ -3,18 +3,15 @@ import time
 from discord.ext import commands
 from music_objects import *
 
-
-
 class Music(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.guilds_info = {}
 
-
     @commands.command()
     async def join(self, ctx):
         """Join your current voice channel"""
-        
+        print('Joining:', ctx.guild.id)
         if ctx.author.voice is None:
             await ctx.channel.send('I do not see you in a VC')
             return
@@ -28,6 +25,7 @@ class Music(commands.Cog):
     @commands.command()
     async def leave(self, ctx):
         """Leave the current VC. This will Reset the queue."""
+        print('Leaving:', str(ctx.guild.id))
         if ctx.voice_client is not None:
             self.guilds_info[ctx.guild.id] = None
             await ctx.channel.send('Leaving VC :wave:')
@@ -38,13 +36,18 @@ class Music(commands.Cog):
     @commands.command()
     async def play(self, ctx, *, search_term):
         """Works with links and search terms"""
+        print('Playing in:', ctx.guild.id)
         # If Beatbot is currently playing music in a channel that the requester is not in      
         if (ctx.voice_client) and self.guilds_info[ctx.guild.id].current_song and (ctx.author.voice.channel != ctx.voice_client.channel):
             await ctx.channel.send('I am currently playing music in: %s' % ctx.voice_client.channel.name)
             return
-        
+
         await self.join(ctx)
-        s = Song(search_term)
+        s = self.song_download(search_term)
+        if s == False:
+            await ctx.channel.send('Error downloading that video :frowning2:')
+            return
+        
         self.guilds_info[ctx.guild.id].song_queue.add_bottom(s)
         await ctx.channel.send('Added song to queue :file_folder:')
         
@@ -54,13 +57,18 @@ class Music(commands.Cog):
     @commands.command()
     async def top(self, ctx, *, search_term):
         """Add a song to the top of the queue"""
+        print('Top in:', ctx.guild.id)
         # If Beatbot is currently playing music in a channel that the requester is not in      
         if (ctx.voice_client) and self.guilds_info[ctx.guild.id].current_song and (ctx.author.voice.channel != ctx.voice_client.channel):
             await ctx.channel.send('I am currently playing music in: %s' % ctx.voice_client.channel.name)
             return
         
         await self.join(ctx)
-        s = Song(search_term)
+        s = self.song_download(search_term)
+        if s == False:
+            await ctx.channel.send('Error downloading that video :frowning2:')
+            return
+
         self.guilds_info[ctx.guild.id].song_queue.add_top(s)
         await ctx.channel.send('Added song to queue :file_folder:')
         if (not self.guilds_info[ctx.guild.id].current_song):
@@ -71,6 +79,7 @@ class Music(commands.Cog):
         """This will play an entire playlist of songs
         Either link a song in the playlist or link the playlist itself.
         There is no search feature for playlists"""
+        print('Playing playlist in:', ctx.guild.id)
         await self.join(ctx)
         if (('&list=' not in search_term) or ('https://www.youtube.com/watch?v=' != search_term[:32])):
             await ctx.channel.send('I can\'t recognize this playlist link')
@@ -83,6 +92,7 @@ class Music(commands.Cog):
     @commands.command()
     async def top_playlist(self, ctx, *, search_term):
         """Add a playlist to the top of the queue"""
+        print('Top playlist in:', ctx.guild.id)
         await self.join(ctx)
         if (('&list=' not in search_term) or ('https://www.youtube.com/watch?v=' != search_term[:32])):
             await ctx.channel.send('I can\'t recognize this playlist link')
@@ -95,6 +105,7 @@ class Music(commands.Cog):
     @commands.command()
     async def pause(self, ctx):
         """Pause the current song"""
+        print('Pausing in:', ctx.guild.id)
         if ctx.voice_client and (ctx.author.voice.channel == ctx.voice_client.channel):
             await ctx.channel.send('Pausing Song :pause_button:')
             ctx.voice_client.pause()
@@ -106,6 +117,7 @@ class Music(commands.Cog):
     @commands.command()
     async def resume(self, ctx):
         """Resume from the paused state"""
+        print('Resuming in:', ctx.guild.id)
         if ctx.voice_client and (ctx.author.voice.channel == ctx.voice_client.channel):
             await ctx.channel.send('Resuming Song :arrow_right:')
             ctx.voice_client.resume()
@@ -117,6 +129,7 @@ class Music(commands.Cog):
     @commands.command()
     async def stop(self, ctx):
         """Stop playing music and clear the song queue"""
+        print('Stopping in:', ctx.guild.id)
         if ctx.voice_client and (ctx.author.voice.channel == ctx.voice_client.channel):
             await ctx.channel.send('Stoping Music :stop_button:')
             self.guilds_info[ctx.guild.id] = Guild_Info()
@@ -129,6 +142,7 @@ class Music(commands.Cog):
     @commands.command()
     async def skip(self, ctx):
         """Skip the current song"""
+        print('Skippping in:', ctx.guild.id)
         if ctx.voice_client and (ctx.author.voice.channel == ctx.voice_client.channel):
             await ctx.channel.send('Skipping Song :fast_forward:')
             ctx.voice_client.stop()
@@ -140,6 +154,7 @@ class Music(commands.Cog):
     @commands.command()
     async def skip_playlist(self, ctx):
         """Skip the current song. If the current song is in a playlist, then remove the playlist from the queue"""
+        print('Skip playlist in:', ctx.guild.id)
         if ctx.voice_client and (ctx.author.voice.channel == ctx.voice_client.channel):
             await ctx.channel.send('Skipping Songs :fast_forward:')
             self.guilds_info[ctx.guild.id].song_queue.remove_element(0)
@@ -152,6 +167,7 @@ class Music(commands.Cog):
     @commands.command()
     async def remove(self, ctx, *, n):
         """Removes Nth element from queue"""
+        print('Remove in:', ctx.guild.id)
         if ctx.voice_client and (ctx.author.voice.channel == ctx.voice_client.channel):
             await ctx.channel.send('Deleting Song :boom:')
             self.guilds_info[ctx.guild.id].song_queue.remove_element(int(n))
@@ -165,6 +181,7 @@ class Music(commands.Cog):
     @commands.command()
     async def queue(self, ctx):
         """Show the current song queue"""
+        print('Queue in:', ctx.guild.id)
         if not ctx.voice_client:
             await ctx.channel.send('Not currently connected to a VC')
             return
@@ -181,6 +198,7 @@ class Music(commands.Cog):
     @commands.command()
     async def np(self, ctx):
         """Show the song that is currently playing"""
+        print('NP in:', ctx.guild.id)
         if not ctx.voice_client:
             await ctx.channel.send('Not currently connected to a VC')
             return
@@ -202,9 +220,7 @@ class Music(commands.Cog):
             await before.channel.guild.voice_client.disconnect()
 
     def next_song(self, guild_id, voice_client):
-        curframe = inspect.currentframe()
-        calframe = inspect.getouterframes(curframe, 2)
-        #print('next_song caller name:' + calframe[1][3])
+        print('Next Song')
         song_queue = self.guilds_info[guild_id].song_queue
 
         preloaded_count = len(song_queue)
@@ -218,4 +234,11 @@ class Music(commands.Cog):
             voice_client.play(song, after=lambda x: self.next_song(guild_id, voice_client))
         if preloaded_count < song_queue.min_buffer:
             song_queue.download(song_queue.batch_size)
-    
+
+
+    def song_download(self, search_term):
+        s = Song(search_term)
+        s.download_metadata()
+        if s.fucked:
+            return False
+        return s

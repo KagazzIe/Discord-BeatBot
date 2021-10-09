@@ -8,27 +8,27 @@ from threading import Lock
 ytdl_search = youtube_dl.YoutubeDL({'format': 'bestaudio/best',
                                     'noplaylist': True,
                                     'default_search': 'auto',
-                                    'quiet':True}
+                                    'quiet':False}
                                    )
 ytdl_metadata_search = youtube_dl.YoutubeDL({'format': 'bestaudio/best',
                                     'noplaylist': True,
                                     'default_search': 'auto',
                                     'skip_download':True,
                                     'simulate':True,
-                                    'quiet':True}
+                                    'quiet':False}
                                    )
 
 ytdl_link = youtube_dl.YoutubeDL({
                                 'format': 'bestaudio/best',
                                 'noplaylist': True,
-                                'quiet':True}
+                                'quiet':False}
                                  )
 ytdl_metadata_link = youtube_dl.YoutubeDL({
                                 'format': 'bestaudio/best',
                                 'noplaylist': True,
                                 'skip_download':True,
                                 'simulate':True,
-                                'quiet':True}
+                                'quiet':False}
                                  )
 
 ytdl_metadata_playlist = youtube_dl.YoutubeDL({
@@ -38,7 +38,7 @@ ytdl_metadata_playlist = youtube_dl.YoutubeDL({
                                 'playlistend':1,
                                 'skip_download':True,
                                 'simulate':True,
-                                'quiet':True}
+                                'quiet':False}
                                  )
 
 
@@ -53,6 +53,7 @@ class Song(discord.PCMVolumeTransformer):
         self._data = data
         self._title = None
         self._url = None
+        self.fucked = False
         if data:
             super().__init__(discord.FFmpegPCMAudio(data['url'], **ffmpeg_options))
             self._title = data.get('title')
@@ -60,12 +61,20 @@ class Song(discord.PCMVolumeTransformer):
         
     
     def search(self):
-        data = ytdl_search.extract_info('ytsearch:{%s}' % (self.search_term), download=False)['entries'][0]
+        try:
+            data = ytdl_search.extract_info('ytsearch:{%s}' % (self.search_term), download=False)['entries'][0]
+        except:
+            self.fucked = True
+            return False
         self._data = data
         return data
     
     def fetch_link(self):
-        data = ytdl_link.extract_info(self.search_term, download=False)
+        try:
+            data = ytdl_link.extract_info(self.search_term, download=False)
+        except:
+            self.fucked = True
+            return False
         self._data = data
         return data
 
@@ -74,14 +83,18 @@ class Song(discord.PCMVolumeTransformer):
         Will downlod the song.
         Will also get the title and url
         """
-        #print('Downloading Song')
+        print('Downloading Song')
         if 'https://www.youtube.com/watch?v=' in self.search_term:
             data = self.fetch_link()
         else:
             data = self.search()
-        self._title = data.get('title')
-        self._url = data.get('url')
-        super().__init__(discord.FFmpegPCMAudio(data['url'], **ffmpeg_options))
+        if data: 
+            self._title = data.get('title')
+            self._url = data.get('url')
+            super().__init__(discord.FFmpegPCMAudio(data['url'], **ffmpeg_options))
+            return True
+        else:
+            return False
 
     def download_metadata(self):
         """
@@ -90,11 +103,15 @@ class Song(discord.PCMVolumeTransformer):
         """
         if self._title and self._url:
             return
-        #print('Downloading Song Metadata')
-        if 'https://www.youtube.com/watch?v=' in self.search_term:
-            data = ytdl_metadata_link.extract_info(self.search_term, download=False)
-        else:
-            data = ytdl_metadata_search.extract_info('ytsearch:{%s}' % (self.search_term), download=False)['entries'][0]
+        print('Downloading Song Metadata')
+        try:
+            if 'https://www.youtube.com/watch?v=' in self.search_term:
+                data = ytdl_metadata_link.extract_info(self.search_term, download=False)
+            else:
+                data = ytdl_metadata_search.extract_info('ytsearch:{%s}' % (self.search_term), download=False)['entries'][0]
+        except:
+            self.fucked = True
+            return False
         self._title = data.get('title')
         self._url = data.get('url')
         return data
@@ -159,7 +176,7 @@ class Playlist():
         Will download the meta data for the playlist
         """
         if not self._title:
-            #print('Downloading Playlist Metadata')
+            print('Downloading Playlist Metadata')
             data = ytdl_metadata_playlist.extract_info(self._link, download=False)
             self._title = data.get('title')
             self._link = data.get('id')
@@ -172,7 +189,7 @@ class Playlist():
         """
         if len(self) == 0:
             return False
-        #print('pooping out song')
+        print('Playlist change song')
         self.song_index_lock.acquire()
         ind = self._songindex
         self._songindex += 1
@@ -192,6 +209,7 @@ class Playlist():
         will return how many songs it was able to download.
         Something like the playlist ending would cause this to be less than n.
         """
+        print('playlist download songs')
         if self._done_downloading == True:
             return 0
 
@@ -209,7 +227,9 @@ class Playlist():
                             'noplaylist': False,
                             'playliststart':ind,
                             'playlistend':ind+n-1,
-                            'quiet':True}
+                            'quiet':True,
+                            'username':'beatbot420@gmail.com',
+                            'password':'CBik5hdZAjtQwQ2'}
                              )
         data = ytdl_temp.extract_info(self._link,download=False)
         lst = []
@@ -287,6 +307,7 @@ class Song_Queue(deque):
         self.active_song = None
 
     def change_song(self):
+        print('song queue change song')
         self.main_lock.acquire()
         if isinstance(self.active_song, Playlist):
             has_songs = 1
@@ -313,6 +334,7 @@ class Song_Queue(deque):
         """
         Removes the Nth element from the song_queue
         """
+        print('song queue remove elem')
         self.main_lock.acquire()
         if n == 0:
             self.active_song = None
@@ -336,6 +358,7 @@ class Song_Queue(deque):
         """
         Downloads the next n songs from self._not_downloaded_songs and puts them into self._downloaded_songs
         """
+        print('song queue download')
         i = 0
         if isinstance(self.active_song, Playlist):
             i += self.active_song.download(n)
@@ -345,8 +368,13 @@ class Song_Queue(deque):
             elem = self._not_downloaded_songs[0]
             if isinstance(elem, Song):
                 #Elem is a song
-                elem.download()                
-                i += 1
+                if elem.download():             
+                    i += 1
+                else:
+                    print('fuck')
+                    self._not_downloaded_songs.popleft()
+                    elem.cleanup()
+                    continue
             else:
                 #Elem is a playlist
                 num_downloaded = elem.download(n)
@@ -364,11 +392,11 @@ class Song_Queue(deque):
         checks if a new batch of songs needs to be downloaded in order to fill the buffer
         downloads the meta data of the new song
         """
+        print('song queue add bottom')
         self._not_downloaded_songs.append(elem)
         if len(self)<self.min_buffer:
             self.download(self.batch_size)
-        elem.download_metadata()
-
+        
     def add_top(self, elem):
         """
         Adds a song to the top of the song_queue
@@ -383,6 +411,7 @@ class Song_Queue(deque):
         If a song is the currently playing element:
         the song remains the active song
         """
+        print('song queue add top')
         if not self.active_song:
             self.add_bottom(elem)
             return
@@ -410,6 +439,7 @@ class Song_Queue(deque):
         returns the song_queue as a string.
         This is only really useful for $queue
         """
+        print('Song Queue String')
         elem = self.active_song
         if isinstance(elem, Playlist):
             string = '''on Song %i of: %s\n\n''' % (elem.song_number-1, elem.title)
@@ -417,8 +447,8 @@ class Song_Queue(deque):
             string = ''': %s\n\n''' % elem.song_title
         
         i = 0
-        string += '''Pre-Loaded Songs:\n'''
-        #string += '''Songs:\n'''
+        #string += '''Pre-Loaded Songs:\n'''
+        string += '''Songs:\n'''
         while(i<len(self._downloaded_songs)):
             elem = self._downloaded_songs[i]
             if isinstance(elem, Song):
@@ -427,7 +457,7 @@ class Song_Queue(deque):
                 string += '%i- On Song %i of: %s\n' % (i+1,elem.song_number,elem.title)
             i += 1
 
-        string += '''\nUn-Loaded Songs:\n'''
+        #string += '''\nUn-Loaded Songs:\n'''
         while(i<len(self._downloaded_songs)+len(self._not_downloaded_songs)):
             elem = self._not_downloaded_songs[i-len(self._downloaded_songs)]
             if isinstance(elem, Song):
@@ -436,7 +466,6 @@ class Song_Queue(deque):
                 string += '%i- On Video %i in %s\n' % (i+1,elem.song_number,elem.title)
             i += 1
         return string
-
     
 class Guild_Info():
     def __init__(self):
