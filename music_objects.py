@@ -151,6 +151,9 @@ class Song(discord.PCMVolumeTransformer):
         if self._data:
             super().cleanup
         self._data = None
+
+    def downloaded(self):
+        return True if self._data else False
         
 
 class Playlist():
@@ -393,32 +396,21 @@ class Song_Queue(deque):
         downloads the meta data of the new song
         """
         print('song queue add bottom')
-        self._not_downloaded_songs.append(elem)
+        if elem.downloaded:
+            self._downloaded_songs.append(elem)
+        else:
+            self._not_downloaded_songs.append(elem)
         if len(self)<self.min_buffer:
             self.download(self.batch_size)
         
     def add_top(self, elem):
-        """
-        Adds a song to the top of the song_queue
-        This will always pre-download the song
-
-        If there is no songs being played currently, add it to the bottom of the queue
-        It will float to the top
-        
-        If a playlist is the currently playing element:
-        the current playing song becomes the new active song and the playlist is moved back to downloaded songs
-
-        If a song is the currently playing element:
-        the song remains the active song
-        """
         print('song queue add top')
         if not self.active_song:
             self.add_bottom(elem)
             return
         if isinstance(elem, Playlist):
             elem.download(1)
-        else:
-            elem.download()
+
         if isinstance(self.active_song, Song):
             self._downloaded_songs.appendleft(elem)
         else:

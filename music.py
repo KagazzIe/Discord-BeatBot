@@ -43,12 +43,19 @@ class Music(commands.Cog):
             return
 
         await self.join(ctx)
-        s = self.song_download(search_term)
-        if s == False:
+        s = Song(search_term)
+        song_queue = self.guilds_info[ctx.guild.id].song_queue
+        preloaded_count = len(song_queue)
+        if preloaded_count < song_queue.min_buffer:
+            s.download()
+        else:
+            s.download_metadata()
+        
+        if s.fucked == True:
             await ctx.channel.send('Error downloading that video :frowning2:')
             return
         
-        self.guilds_info[ctx.guild.id].song_queue.add_bottom(s)
+        song_queue.add_bottom(s)
         await ctx.channel.send('Added song to queue :file_folder:')
         
         if (not self.guilds_info[ctx.guild.id].current_song):
@@ -64,8 +71,11 @@ class Music(commands.Cog):
             return
         
         await self.join(ctx)
-        s = self.song_download(search_term)
-        if s == False:
+        s = Song(search_term)
+        
+        s.download()
+        
+        if s.fucked == True:
             await ctx.channel.send('Error downloading that video :frowning2:')
             return
 
@@ -234,11 +244,3 @@ class Music(commands.Cog):
             voice_client.play(song, after=lambda x: self.next_song(guild_id, voice_client))
         if preloaded_count < song_queue.min_buffer:
             song_queue.download(song_queue.batch_size)
-
-
-    def song_download(self, search_term):
-        s = Song(search_term)
-        s.download_metadata()
-        if s.fucked:
-            return False
-        return s
