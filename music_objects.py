@@ -230,9 +230,7 @@ class Playlist():
                             'noplaylist': False,
                             'playliststart':ind,
                             'playlistend':ind+n-1,
-                            'quiet':True,
-                            'username':'beatbot420@gmail.com',
-                            'password':'CBik5hdZAjtQwQ2'}
+                            'quiet':True}
                              )
         data = ytdl_temp.extract_info(self._link,download=False)
         lst = []
@@ -396,7 +394,7 @@ class Song_Queue(deque):
         downloads the meta data of the new song
         """
         print('song queue add bottom')
-        if elem.downloaded:
+        if isinstance(elem, Song) and elem.downloaded:
             self._downloaded_songs.append(elem)
         else:
             self._not_downloaded_songs.append(elem)
