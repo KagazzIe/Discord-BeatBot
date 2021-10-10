@@ -152,8 +152,12 @@ class Song(discord.PCMVolumeTransformer):
             super().cleanup
         self._data = None
 
+    @property
     def downloaded(self):
-        return True if self._data else False
+        if self._data != None:
+            return True
+        else:
+            return False
         
 
 class Playlist():
@@ -374,7 +378,6 @@ class Song_Queue(deque):
                 if elem.download():             
                     i += 1
                 else:
-                    print('fuck')
                     self._not_downloaded_songs.popleft()
                     elem.cleanup()
                     continue
@@ -384,7 +387,6 @@ class Song_Queue(deque):
                 i += num_downloaded
             self._not_downloaded_songs.popleft()
             self._downloaded_songs.append(elem)
-
         return i
 
             
@@ -441,8 +443,8 @@ class Song_Queue(deque):
             string = ''': %s\n\n''' % elem.song_title
         
         i = 0
-        #string += '''Pre-Loaded Songs:\n'''
-        string += '''Songs:\n'''
+        string += '''Pre-Loaded Songs:\n'''
+        #string += '''Songs:\n'''
         while(i<len(self._downloaded_songs)):
             elem = self._downloaded_songs[i]
             if isinstance(elem, Song):
@@ -451,7 +453,7 @@ class Song_Queue(deque):
                 string += '%i- On Song %i of: %s\n' % (i+1,elem.song_number,elem.title)
             i += 1
 
-        #string += '''\nUn-Loaded Songs:\n'''
+        string += '''\nUn-Loaded Songs:\n'''
         while(i<len(self._downloaded_songs)+len(self._not_downloaded_songs)):
             elem = self._not_downloaded_songs[i-len(self._downloaded_songs)]
             if isinstance(elem, Song):
