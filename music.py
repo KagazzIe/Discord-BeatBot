@@ -232,15 +232,15 @@ class Music(commands.Cog):
     def next_song(self, guild_id, voice_client):
         print('Next Song')
         song_queue = self.guilds_info[guild_id].song_queue
-
         preloaded_count = len(song_queue)
         if preloaded_count == 0:
             preloaded_count += 1
             song_queue.download(1)
         song = song_queue.change_song()
-        preloaded_count -= 1
         
+        preloaded_count -= 1    
         if song and (not voice_client.is_playing()):
+            print(song._title)
             voice_client.play(song, after=lambda x: self.next_song(guild_id, voice_client))
         if preloaded_count < song_queue.min_buffer:
             song_queue.download(song_queue.batch_size)

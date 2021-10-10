@@ -313,15 +313,17 @@ class Song_Queue(deque):
         if isinstance(self.active_song, Playlist):
             has_songs = 1
             if len(self.active_song) == 0:
+                self.main_lock.release()
                 return False
             
             if has_songs > 0:
                 song = self.active_song.change_song()
-                
+                self.main_lock.release()
                 return song
 
         if len(self._downloaded_songs) == 0:
             self.active_song = None
+            self.main_lock.release()
             return False
         
         elem = self._downloaded_songs.popleft()
@@ -431,7 +433,9 @@ class Song_Queue(deque):
         """
         print('Song Queue String')
         elem = self.active_song
-        if isinstance(elem, Playlist):
+        if elem == None:
+            string = 'Currently Playing: None\n'
+        elif isinstance(elem, Playlist):
             string = '''on Song %i of: %s\n\n''' % (elem.song_number-1, elem.title)
         else:
             string = ''': %s\n\n''' % elem.song_title
