@@ -346,6 +346,7 @@ class Song_Queue(deque):
         if n == 0:
             self.active_song = None
         if n > (len(self._downloaded_songs) + len(self._not_downloaded_songs)):
+            self.main_lock.release()
             return False
         counter = 0
         while(counter < len(self._downloaded_songs)):

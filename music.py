@@ -77,7 +77,7 @@ class Music(commands.Cog):
         if s.fucked == True:
             await ctx.channel.send('Error downloading that video :frowning2:')
             return
-        song_queue = self.guilds_info[ctx.guild.id]
+        song_queue = self.guilds_info[ctx.guild.id].song_queue
         song_queue.add_top(s)
         await ctx.channel.send('Added song to queue :file_folder:')
         if (not self.guilds_info[ctx.guild.id].current_song):
