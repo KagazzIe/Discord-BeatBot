@@ -179,9 +179,10 @@ class Music(commands.Cog):
         print('Remove in:', ctx.guild.id)
         if ctx.voice_client and (ctx.author.voice.channel == ctx.voice_client.channel):
             await ctx.channel.send('Deleting Song :boom:')
-            self.guilds_info[ctx.guild.id].song_queue.remove_element(int(n))
-            if n == 0:
+            if n == '0':
+                self.guilds_info[ctx.guild.id].song_queue.remove_element(0)
                 ctx.voice_client.stop()
+            self.guilds_info[ctx.guild.id].song_queue.remove_element(int(n))
         elif ctx.voice_client:
             await ctx.channel.send('You are not in the correct VC')
         else:
