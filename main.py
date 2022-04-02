@@ -1,15 +1,12 @@
-from discord.ext import commands
+import pycord
+#from discord.ext import commands
 
 #my libs
-from music import Music
-
-
-#PyNaCl Library Needed
-#Discord Library Needed
+import music_cog
 
 
 bot = commands.Bot(command_prefix='$', case_insensitive=True)
-bot.add_cog(Music(bot))
+bot.add_cog(music_cog.Music(bot))
 
 @bot.event
 async def on_ready():
@@ -20,6 +17,5 @@ async def on_ready():
 f = open("token.txt", 'r')
 token = f.readline().strip()
 f.close()
-beat_bot_id = 880083788955279410
 
 bot.run(token)
