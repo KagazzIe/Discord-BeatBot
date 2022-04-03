@@ -1,4 +1,4 @@
-import discord
+import pycord
 
 class Song():
     # This represents a song that can be looked up on youtube

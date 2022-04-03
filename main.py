@@ -1,5 +1,5 @@
 import pycord
-#from discord.ext import commands
+from discord.ext import commands
 
 #my libs
 import music_cog
