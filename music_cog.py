@@ -1,9 +1,7 @@
 import pycord
 from discord.ext import commands
-
-#TODO: Find a better name for these
-import server_info
-import song_queue
+import session_object
+import song_objects
 
 #This file should contain all things related to the music module
 
@@ -18,14 +16,14 @@ class Music(commands.Cog):
         # Attempt to join a voice channel
         """Join your current voice channel"""
         
-        session = server_info.Session(ctx.guild.id)
-        err = await session.join(ctx)
+        guild_instance = session_object.Session(ctx.guild.id)
+        err = await guild_instance.join(ctx)
         
         if (err):
             await ctx.channel.send(err)
             return err
         
-        self.guilds_dict[ctx.guild.id] = session
+        self.guilds_dict[ctx.guild.id] = guild_instance
         return
 
     @commands.command()
@@ -56,7 +54,7 @@ class Music(commands.Cog):
         guild_instance = self.guilds_dict.get(ctx.guild.id)
         
         if is_link(search_str):
-            song = song_queue.Song.from_url(search_str, download=True)
+            song = song_objects.Song.from_url(search_str, download=True)
         print(song.title)
         ctx.voice_client.play(song, after=None)
         # Add song to the guild's song queue

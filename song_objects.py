@@ -45,6 +45,13 @@ class Song(discord.PCMVolumeTransformer):
         
 
     def download(self, n):
+        """
+        Will download the full song. This takes a long time and a lot of space.
+        It is preferable to just download the metadata of the song if that is all that is needed at the moment.
+        """
+        if self.data_downloaded:
+            #Already downloaded
+            return 0
         self.data = self.download_settings.video.extract_info(self.search_term, download=False)
         self.data_downloaded = True
         self.metadata_downloaded = True
@@ -52,6 +59,15 @@ class Song(discord.PCMVolumeTransformer):
         return 1
 
     def download_metadata(self, n):
+        """
+        Downloads information about the song, but does not download the actual song.
+        Will download information like, title, url.
+        Signifigantly faster than downloading the entire song.
+        """
+        if self.metadata_downloaded:
+            return 0
+        self.data = self.download_settings.metadata.extract_info(self.search_term, download=False)
+        self.metadata_downloaded = True
         return 1
     
     @classmethod
@@ -76,19 +92,19 @@ class Song(discord.PCMVolumeTransformer):
         pass
     
     @property
-    def downloaded(self):
-        return bool(self.data)
+    def is_downloaded(self):
+        return self.data_downloaded
 
     @property
     def title(self):
-        return self.data.get("title")
+        return self.data.get("title") if (self.metadata_downloaded) else None
 
     @property
     def url(self):
-        return self.data.get("url")
+        return self.data.get("url") if (self.metadata_downloaded) else None
 
     def loaded_len(self):
-        return 1 if self.downloaded else 0
+        return 1 if self.is_downloaded else 0
 
 class Playlist(Song_Queue):
     def __init__(self):
