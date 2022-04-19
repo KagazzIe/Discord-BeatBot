@@ -11,52 +11,84 @@ import server_info
 class Music(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
-        self.guilds_info = {}
+        self.guilds_dict = {}
 
     @commands.command()
     async def join(self, ctx):
         # Attempt to join a voice channel
-        # Error msgs:
-        # 1 = User is not in a call
-        # 2 = Beatbot is in another call
         """Join your current voice channel"""
-        guild_instance = self.guilds_info.get(ctx.guild.id)
         
-        # If user not connected to a VC
-        if not (ctx.author.voice):
-            await ctx.channel.send('I do not see you in a VC')
-            return 1
-        # If beatbot connected to another VC in that server
-        elif (guild_instance):
-            # If beatbot in the same channel as requester
-            if (guild_instance.channel() == ctx.author.voice.channel):
-                return 0
-            else:
-                await ctx.channel.send('I am already in another VC')
-                return 2
-        else:
-            self.guilds_info[ctx.guild.id] = server_info.Server(ctx.guild.id)
-            await self.guilds_info[ctx.guild.id].join(ctx)
-            return 0
-        return -1
+        session = server_info.Session(ctx.guild.id)
+        err = await session.join(ctx)
+        
+        if (err):
+            await ctx.channel.send(err)
+            return
+        
+        self.guilds_dict[ctx.guild.id] = session
 
     @commands.command()
     async def leave(self, ctx):
         # Attempt leave the current voice channel
-        # Error msgs:
-        # 1 = Beatbot is not in a VC
         """Leave the current VC. This will Reset the queue."""
-        guild_instance = self.guilds_info.get(ctx.guild.id)
         
-        if ctx.voice_client:
-            await guild_instance.disconenct_vc()
-            del self.guilds_info[ctx.guild.id]
-            return 0
-        else:
-            await ctx.channel.send('I am not in a VC')
-            return 1
+        if ctx.guild.id not in self.guilds_dict:
+            # No session in guild
+            return
+        
+        guild_instance = self.guilds_dict.get(ctx.guild.id)
+        err = await guild_instance.disconenct_vc()
+        if (err):
+            await ctx.channel.send(err)
+            return
+        del self.guilds_dict[ctx.guild.id]
 
     @commands.command()
     async def play(self, ctx, *, search_term):
+        # Attempt to play a song
         """Works with links and search terms"""
+        guild_instance = self.guilds_dict.get(ctx.guild.id)
+
+        if (join(ctx) != 0):
+            # Error when joining call
+            return 1
+
+        # Create the song object
+        # Add song to the guild's song queue
+        
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         
