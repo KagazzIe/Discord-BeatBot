@@ -1,9 +1,9 @@
 import pycord
-import time
 from discord.ext import commands
 
-#TODO: Find a better name for this
+#TODO: Find a better name for these
 import server_info
+import song_queue
 
 #This file should contain all things related to the music module
 
@@ -23,9 +23,10 @@ class Music(commands.Cog):
         
         if (err):
             await ctx.channel.send(err)
-            return
+            return err
         
         self.guilds_dict[ctx.guild.id] = session
+        return
 
     @commands.command()
     async def leave(self, ctx):
@@ -40,20 +41,24 @@ class Music(commands.Cog):
         err = await guild_instance.disconenct_vc()
         if (err):
             await ctx.channel.send(err)
-            return
+            return err
         del self.guilds_dict[ctx.guild.id]
+        return
 
     @commands.command()
-    async def play(self, ctx, *, search_term):
+    async def play(self, ctx, *, search_str):
         # Attempt to play a song
         """Works with links and search terms"""
-        guild_instance = self.guilds_dict.get(ctx.guild.id)
-
-        if (join(ctx) != 0):
+        if (await self.join(ctx)):
             # Error when joining call
             return 1
-
-        # Create the song object
+        
+        guild_instance = self.guilds_dict.get(ctx.guild.id)
+        
+        if is_link(search_str):
+            song = song_queue.Song.from_url(search_str, download=True)
+        print(song.title)
+        ctx.voice_client.play(song, after=None)
         # Add song to the guild's song queue
         
 
@@ -70,7 +75,8 @@ class Music(commands.Cog):
 
 
 
-
+def is_link(string):
+    return True
 
 
 

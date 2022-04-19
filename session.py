@@ -1,4 +1,5 @@
-import pycord
+#TODO: Find a better name for this
+import song_queue
 
 class Session():
     # Sever contains the discordpy api guild and any other
@@ -7,7 +8,8 @@ class Session():
         self.id = server_id
         self.voice_client = None
         self.voice_channel = None
-
+        self.song_queue = song_queue.Song_Queue(preload_count = 1)
+        
     async def join(self, ctx):
         # Try to connect to the voice channel that is found in ctx
         try:
