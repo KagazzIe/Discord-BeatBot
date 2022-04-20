@@ -5,6 +5,24 @@ class ytdl_options():
         self.video = youtube_dl.YoutubeDL(video)
         self.metadata = youtube_dl.YoutubeDL(metadata)
 
+    def download_video(self, term):
+        data = self.video.extract_info(term, download=False)
+
+        if ("entries" in data):
+            #If there are multiple videos found, pick the first one
+            data = data[entries][0]
+        
+        return data
+
+    def download_metadata(self, term):
+        data = self.metadata.extract_info(term, download=False)
+
+        if ("entries" in data):
+            #If there are multiple videos found, pick the first one
+            data = data[entries][0]
+        
+        return data
+
 ytdl_search = ytdl_options(
     {'format': 'bestaudio/best',
     'noplaylist': True,

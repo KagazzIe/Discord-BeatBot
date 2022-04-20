@@ -44,7 +44,7 @@ class Song(discord.PCMVolumeTransformer):
         
         
 
-    def download(self, n):
+    def download(self, n=1):
         """
         Will download the full song. This takes a long time and a lot of space.
         It is preferable to just download the metadata of the song if that is all that is needed at the moment.
@@ -52,7 +52,9 @@ class Song(discord.PCMVolumeTransformer):
         if self.data_downloaded:
             #Already downloaded
             return 0
-        self.data = self.download_settings.video.extract_info(self.search_term, download=False)
+
+        self.data = self.download_settings.download_video(self.search_term)
+
         self.data_downloaded = True
         self.metadata_downloaded = True
         super().__init__(discord.FFmpegPCMAudio(self.data.get('url'), **ytdl_config.ffmpeg_options))
@@ -66,7 +68,9 @@ class Song(discord.PCMVolumeTransformer):
         """
         if self.metadata_downloaded:
             return 0
+
         self.data = self.download_settings.metadata.extract_info(self.search_term, download=False)
+
         self.metadata_downloaded = True
         return 1
     
@@ -79,9 +83,9 @@ class Song(discord.PCMVolumeTransformer):
         song = Song(url, ytdl_config.ytdl_url)
         try:
             if download:
-                song.download(1)
+                song.download()
             else:
-                song.download_metadata(1)
+                song.download_metadata()
         except Exception as e:
             print(e)
             return str(e)
