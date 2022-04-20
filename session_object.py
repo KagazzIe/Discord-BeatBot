@@ -8,6 +8,7 @@ class Session():
         self.voice_client = None
         self.voice_channel = None
         self.song_queue = song_objects.Song_Queue(preload_count = 1)
+        self.currently_playing = False
         
     async def join(self, ctx):
         # Try to connect to the voice channel that is found in ctx
@@ -35,6 +36,28 @@ class Session():
         self.voice_channel = None
 
         return 0
+
+    def play_next(self):
+        """
+        This works by playing the next song, then using the voice_client.play 
+        after argument to call the function again after the song is over.
+        This creates a loop which allows songs to play one after another.
+        
+        I ran into a lot of issues in the last iteration of beat bot with two 
+        independent play_next() loops being started which caused different bugs.
+
+        Setting self.currently_playing immediatley to true, and checking
+        it before  $play starts a new play_next loop should fix most of these issues. I think.
+        """
+        self.currently_playing = True
+        next_song = self.song_queue.change_song()
+        if next_song:
+            self.voice_client.play(next_song, after=lambda x: self.play_next())
+        else:
+            self.currently_playing = False
+
+    def add_song(self, song):
+        self.song_queue.append(song)
 
     def __eq__(self, other):
         # returns true when other is equal to the server id

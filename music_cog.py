@@ -48,24 +48,23 @@ class Music(commands.Cog):
     async def play(self, ctx, *, search_str):
         # Attempt to play a song
         """Works with links and search terms"""
-        if (await self.join(ctx)):
-            # Error when joining call
-            return 1
+
+        if (ctx.guild.id not in self.guilds_dict):
+            err = await self.join(ctx)
+            if (err):
+                # Error when joining call
+                print(err)
+                return
         
         guild_instance = self.guilds_dict.get(ctx.guild.id)
         
         if is_link(search_str):
             song = song_objects.Song(search_str, ytdl_config.ytdl_url)
 
-        err = song.download()
+        guild_instance.add_song(song)
 
-        if (err):
-            print(err)
-            return err
-        
-        print(song.title)
-        ctx.voice_client.play(song, after=None)
-        # Add song to the guild's song queue
+        if (not guild_instance.currently_playing):
+            guild_instance.play_next()
         
 
 

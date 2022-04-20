@@ -3,34 +3,60 @@ import collections
 import ytdl_config
 
 class Song_Queue():
-    def __init__(self, preload_count = 0):
+    def __init__(self, preload_count = 1):
         self.loaded = collections.deque()
         self.unloaded = collections.deque()
         self.preload_count = preload_count
+        self.current_song = None
 
-    def __len__(self):
-        pass
-
+    @property
     def loaded_len(self):
-        pass
+        #THIS DOES NOT WORK WITH PLAYLISTS
+        return len(self.loaded)
 
     def download(self, n):
-        pass
+        """
+        Will attempt to downlaod n songs from the unloaded deque
+        After downloading a song it will be moved to the loaded deque
+        """
+        while(n>0):
+            
+            if (not self.unloaded):
+                #There are no songs to download
+                return
 
-    def remove(self, n):
-        pass
+            element_to_download = self.unloaded[0]
+            num_downloaded, err = element_to_download.download(n)
+
+            if (err):
+                print(err)
+                return
+
+            n -= num_downloaded
+            self.loaded.append(element_to_download)
+            if (element_to_download.data_downloaded):
+                #If the element has no more songs to download
+                self.unloaded.remove(element_to_download)
+        return
 
     def change_song(self):
-        pass
+        #THIS DOES NOT WORK WITH PLAYLISTS
+        if self.loaded:
+            self.current_song = self.loaded.pop()
+            self.check_preload()
+        else:
+            self.current_song = None
         
-    def append(self):
-        pass
+        return self.current_song
+        
+    def append(self, song):
+        self.unloaded.append(song)
+        self.check_preload()
 
-    def add_top(self):
-        pass
+    def check_preload(self):
+        if (self.loaded_len < self.preload_count):
+            self.download(self.preload_count - self.loaded_len)
 
-    def clear(self):
-        pass
 
 class Song(discord.PCMVolumeTransformer):
     def __init__(self, search_term, download_settings):
@@ -55,16 +81,16 @@ class Song(discord.PCMVolumeTransformer):
         try:
             self.data = self.download_settings.download_video(self.search_term)
         except Exception as e:
-            return str(e)
+            return 0, str(e)
 
         self.data_downloaded = True
         self.metadata_downloaded = True
 
         super().__init__(discord.FFmpegPCMAudio(self.data.get('url'), **ytdl_config.ffmpeg_options))
         
-        return
+        return 1, ""
 
-    def download_metadata(self, n):
+    def download_metadata(self, n=1):
         """
         Downloads information about the song, but does not download the actual song.
         Will download information like, title, url.
