@@ -36,14 +36,13 @@ class Song(discord.PCMVolumeTransformer):
     def __init__(self, search_term, download_settings):
         self.data_downloaded = False
         self.metadata_downloaded = False
+        self.data = None
+
         self.search_term = search_term
         self.download_settings = download_settings
-        self.data = None
 
         #TODO Locking Here
         
-        
-
     def download(self, n=1):
         """
         Will download the full song. This takes a long time and a lot of space.
@@ -53,12 +52,17 @@ class Song(discord.PCMVolumeTransformer):
             #Already downloaded
             return 0
 
-        self.data = self.download_settings.download_video(self.search_term)
+        try:
+            self.data = self.download_settings.download_video(self.search_term)
+        except Exception as e:
+            return str(e)
 
         self.data_downloaded = True
         self.metadata_downloaded = True
+
         super().__init__(discord.FFmpegPCMAudio(self.data.get('url'), **ytdl_config.ffmpeg_options))
-        return 1
+        
+        return
 
     def download_metadata(self, n):
         """
@@ -67,32 +71,17 @@ class Song(discord.PCMVolumeTransformer):
         Signifigantly faster than downloading the entire song.
         """
         if self.metadata_downloaded:
+            # Already downloaded
             return 0
 
-        self.data = self.download_settings.metadata.extract_info(self.search_term, download=False)
-
-        self.metadata_downloaded = True
-        return 1
-    
-    @classmethod
-    def from_url(self, url, download=False):
-        """
-        URL: The url of the song to download
-        Download: Bool variable on whether to immediatley download the song or not
-        """
-        song = Song(url, ytdl_config.ytdl_url)
         try:
-            if download:
-                song.download()
-            else:
-                song.download_metadata()
+            self.data = self.download_settings.metadata.extract_info(self.search_term, download=False)
         except Exception as e:
-            return song, str(e)
-        return song, ""
-    
-    @classmethod
-    def from_search(self, search_str):
-        pass
+            return str(e)
+        
+        self.metadata_downloaded = True
+        
+        return 1
     
     @property
     def is_downloaded(self):

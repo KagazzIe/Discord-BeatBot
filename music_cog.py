@@ -2,6 +2,7 @@ import pycord
 from discord.ext import commands
 import session_object
 import song_objects
+import ytdl_config
 
 #This file should contain all things related to the music module
 
@@ -54,7 +55,9 @@ class Music(commands.Cog):
         guild_instance = self.guilds_dict.get(ctx.guild.id)
         
         if is_link(search_str):
-            song, err = song_objects.Song.from_url(search_str, download=True)
+            song = song_objects.Song(search_str, ytdl_config.ytdl_url)
+
+        err = song.download()
 
         if (err):
             print(err)
