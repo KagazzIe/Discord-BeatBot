@@ -54,7 +54,12 @@ class Music(commands.Cog):
         guild_instance = self.guilds_dict.get(ctx.guild.id)
         
         if is_link(search_str):
-            song = song_objects.Song.from_url(search_str, download=True)
+            song, err = song_objects.Song.from_url(search_str, download=True)
+
+        if (err):
+            print(err)
+            return err
+        
         print(song.title)
         ctx.voice_client.play(song, after=None)
         # Add song to the guild's song queue

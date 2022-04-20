@@ -87,9 +87,8 @@ class Song(discord.PCMVolumeTransformer):
             else:
                 song.download_metadata()
         except Exception as e:
-            print(e)
-            return str(e)
-        return song
+            return song, str(e)
+        return song, ""
     
     @classmethod
     def from_search(self, search_str):
