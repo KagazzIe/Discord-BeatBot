@@ -3,7 +3,7 @@ from discord.ext import commands
 import session_object
 import song_objects
 import ytdl_config
-
+import asyncio
 # This file should contain all things related to the music module
 
 
@@ -12,11 +12,16 @@ class Music(commands.Cog):
         self.bot = bot
         self.guilds_dict = {}
 
+    async def close_session(self, guild_id):
+        guild_instance = self.guilds_dict.get(guild_id)
+        await guild_instance.disconenct_vc()
+        del self.guilds_dict[guild_id]
+
     @commands.command()
     async def join(self, ctx):
         # Attempt to join a voice channel
 
-        guild_instance = session_object.Session(ctx.guild.id)
+        guild_instance = session_object.Session(ctx.guild.id, self.close_session)
         err = await guild_instance.join(ctx)
 
         if (err):
@@ -67,7 +72,7 @@ class Music(commands.Cog):
         guild_instance.add_song(song)
 
         if (not guild_instance.currently_playing):
-            guild_instance.play_next()
+            await guild_instance.play_next(asyncio.get_running_loop())
 
     @commands.command()
     async def skip(self, ctx):

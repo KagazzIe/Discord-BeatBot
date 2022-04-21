@@ -1,10 +1,12 @@
 import song_objects
+#import asyncio
 
 class Session():
     # Sever contains the discordpy api guild and any other
     # extra data that we would want to associate with a server
-    def __init__(self, server_id):
+    def __init__(self, server_id, end_session):
         self.id = server_id
+        self.end_session = end_session
         self.voice_client = None
         self.voice_channel = None
         self.song_queue = song_objects.Song_Queue(preload_count = 1)
@@ -36,7 +38,7 @@ class Session():
 
         return 0
 
-    def play_next(self):
+    async def play_next(self, loop):
         """
         This works by playing the next song, then using the voice_client.play 
         after argument to call the function again after the song is over.
@@ -48,12 +50,14 @@ class Session():
         Setting self.currently_playing immediatley to true, and checking
         it before  $play starts a new play_next loop should fix most of these issues. I think.
         """
+        
         self.currently_playing = True
         next_song = self.song_queue.change_song()
         if next_song:
-            self.voice_client.play(next_song, after=lambda x: self.play_next())
+            self.voice_client.play(next_song, after= lambda _: loop.create_task(self.play_next(loop)))
         else:
-            self.currently_playing = False
+            loop.create_task(self.end_session(self.id))
+        
 
     def add_song(self, song):
         self.song_queue.append(song)

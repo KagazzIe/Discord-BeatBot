@@ -36,7 +36,7 @@ ytdl_search = ytdl_options(
      'default_search': 'auto',
      'skip_download': True,
      'simulate': True,
-     'quiet': False}
+     'quiet': True}
 )
 
 ytdl_url = ytdl_options(
@@ -48,7 +48,7 @@ ytdl_url = ytdl_options(
      'noplaylist': True,
      'skip_download': True,
      'simulate': True,
-     'quiet': False}
+     'quiet': True}
 )
 
 
