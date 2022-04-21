@@ -46,8 +46,11 @@ class Music(commands.Cog):
 
     @commands.command()
     async def play(self, ctx, *, search_str):
-        # Attempt to play a song
         """Works with links and search terms"""
+        # If someone beat bot is not a in a voice channel,
+        #   then join the user's vc
+        # Download thier song, add it to the queue, and start the
+        # next_song() loop if it is not already running
 
         if (ctx.guild.id not in self.guilds_dict):
             err = await self.join(ctx)
@@ -59,47 +62,16 @@ class Music(commands.Cog):
         guild_instance = self.guilds_dict.get(ctx.guild.id)
         
         if is_link(search_str):
-            song = song_objects.Song(search_str, ytdl_config.ytdl_url)
+            config = ytdl_config.ytdl_url
+        else:
+            config = ytdl_config.ytdl_search
+        song = song_objects.Song(search_str, config)
 
         guild_instance.add_song(song)
 
         if (not guild_instance.currently_playing):
             guild_instance.play_next()
+    
         
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 def is_link(string):
-    return True
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-        
+    return string.startswith("https://www.youtube.com/watch?v=")

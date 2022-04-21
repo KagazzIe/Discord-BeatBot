@@ -16,7 +16,6 @@ class Session():
             await ctx.author.voice.channel.connect()
         # TODO: Add different except to allow bot to leave current call to join the user's vc
         except AttributeError as e:
-            # When the user is not in a VC
             return "I cannot see you in a VC"
         except Exception as e:
             return str(e)
@@ -62,5 +61,3 @@ class Session():
     def __eq__(self, other):
         # returns true when other is equal to the server id
         return (self.id == other)
-
-
