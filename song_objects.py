@@ -15,9 +15,23 @@ class Song_Queue():
         return len(self.loaded)
 
     def download(self, n):
-        """
-        Will attempt to downlaod n songs from the unloaded deque
-        After downloading a song it will be moved to the loaded deque
+        """Downloads the first n songs in the queue.
+
+        Once a song and playlist is downloaded from the front of theunloaded deque, it is 
+        then moved to the end of the loaded deque.
+        
+        If a playlist is partially downloaded, and partially not downloaded, then it
+        will be in both self.loaded and self.unloaded.
+
+        Parameters
+        ----------
+        n : int
+            The desired number of songs to download. It will download up to n songs.
+            If there are less than n songs, it will download all the songs, then return.
+
+        Return
+        ------
+        None
         """
         while(n>0):
             
@@ -85,11 +99,26 @@ class Song(discord.PCMVolumeTransformer):
         #TODO Locking Here 🔒
         
     def download(self, n=1):
-        """
-        Download will return the number of songs sucessfully downloaded and an error string
+        """Downloads the information about the song and downloads the actual song. 
+        Much slower than download_metadata.
 
-        This takes a long time and a lot of space.
-        It is preferable to just download the metadata of the song if that is all that is needed at the moment.
+        If the self.downloaded Bool is set to true, then the function will be aborted,
+        and time will not be spent re-downloading information.
+
+        After sucessfully completing this function, self.metadata_downloaded and 
+        self.downloaded will be set to True.
+
+        Parameters
+        ----------
+        n : int, optional
+            The desired number of songs to download. This is not very useful for Song()
+            objects, but becomes useful when working with Playlist()
+
+        Return
+        ------
+        int
+           This will return the number of songs that successfully downloaded.
+           For the Song() object, this will always be 1 or 0.
         """
         if self.data_downloaded:
             #Already downloaded
@@ -108,11 +137,25 @@ class Song(discord.PCMVolumeTransformer):
         return 1, ""
 
     def download_metadata(self, n=1):
-        """
-        Download_metadata will return the number of songs sucessfully downloaded and an error string
-        
-        Will download information like, title, url.
-        Signifigantly faster than downloading the entire song.
+        """Downloads information about the song. Much Faster than download.
+
+        If the self.metadata_downloaded Bool is set to true, then the function will be aborted,
+        and time will not be spent re-downloading information.
+
+        After sucessfully completing this function, self.metadata_downloaded 
+        will be set to True.
+
+        Parameters
+        ----------
+        n : int, optional
+            The desired number of songs to download. This is not very useful for Song()
+            objects, but becomes useful when working with Playlist()
+
+        Return
+        ------
+        int
+           This will return the number of songs that successfully downloaded.
+           For the Song() object, this will always be 1 or 0.
         """
         if self.metadata_downloaded:
             # Already downloaded
