@@ -67,11 +67,13 @@ class Song(discord.PCMVolumeTransformer):
         self.search_term = search_term
         self.download_settings = download_settings
 
-        #TODO Locking Here
+        #TODO Locking Here 🔒
         
     def download(self, n=1):
         """
-        Will download the full song. This takes a long time and a lot of space.
+        Download will return the number of songs sucessfully downloaded and an error string
+
+        This takes a long time and a lot of space.
         It is preferable to just download the metadata of the song if that is all that is needed at the moment.
         """
         if self.data_downloaded:
@@ -92,7 +94,8 @@ class Song(discord.PCMVolumeTransformer):
 
     def download_metadata(self, n=1):
         """
-        Downloads information about the song, but does not download the actual song.
+        Download_metadata will return the number of songs sucessfully downloaded and an error string
+        
         Will download information like, title, url.
         Signifigantly faster than downloading the entire song.
         """

@@ -4,7 +4,7 @@ import session_object
 import song_objects
 import ytdl_config
 
-#This file should contain all things related to the music module
+# This file should contain all things related to the music module
 
 
 class Music(commands.Cog):
@@ -15,27 +15,25 @@ class Music(commands.Cog):
     @commands.command()
     async def join(self, ctx):
         # Attempt to join a voice channel
-        """Join your current voice channel"""
-        
+
         guild_instance = session_object.Session(ctx.guild.id)
         err = await guild_instance.join(ctx)
-        
+
         if (err):
             await ctx.channel.send(err)
             return err
-        
+
         self.guilds_dict[ctx.guild.id] = guild_instance
         return
 
     @commands.command()
     async def leave(self, ctx):
         # Attempt leave the current voice channel
-        """Leave the current VC. This will Reset the queue."""
-        
+
         if ctx.guild.id not in self.guilds_dict:
             # No session in guild
             return
-        
+
         guild_instance = self.guilds_dict.get(ctx.guild.id)
         err = await guild_instance.disconenct_vc()
         if (err):
@@ -46,7 +44,6 @@ class Music(commands.Cog):
 
     @commands.command()
     async def play(self, ctx, *, search_str):
-        """Works with links and search terms"""
         # If someone beat bot is not a in a voice channel,
         #   then join the user's vc
         # Download thier song, add it to the queue, and start the
@@ -58,9 +55,9 @@ class Music(commands.Cog):
                 # Error when joining call
                 print(err)
                 return
-        
+
         guild_instance = self.guilds_dict.get(ctx.guild.id)
-        
+
         if is_link(search_str):
             config = ytdl_config.ytdl_url
         else:
@@ -71,7 +68,22 @@ class Music(commands.Cog):
 
         if (not guild_instance.currently_playing):
             guild_instance.play_next()
-    
-        
+
+    @commands.command()
+    async def skip(self, ctx):
+        #Skip the song that is currently playing
+        guild_instance = self.guilds_dict.get(ctx.guild.id)
+        if (guild_instance.currently_playing):
+            await ctx.channel.send("Skipping Song :fast_forward:")
+            ctx.voice_client.stop()
+        else:
+            await ctx.channel.send("Not playing in a VC")
+
+    @commands.command()
+    async def queue(self, ctx):
+        #Send a list of all current songs in chat
+        pass
+
+
 def is_link(string):
     return string.startswith("https://www.youtube.com/watch?v=")
