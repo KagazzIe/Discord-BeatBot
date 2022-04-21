@@ -58,6 +58,18 @@ class Session():
     def add_song(self, song):
         self.song_queue.append(song)
 
+    def song_queue_str(self):
+        if (not self.currently_playing):
+            return "There are no songs in queue"
+
+        final_string = "Currently Playing: "
+        final_string += self.song_queue.current_song.title + "\n\n"
+
+        for i in range(len(self.song_queue)):
+            final_string += str(i+1)+ ". " +self.song_queue[i].title + "\n"
+        
+        return final_string
+        
     def __eq__(self, other):
         # returns true when other is equal to the server id
         return (self.id == other)

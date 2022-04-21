@@ -57,6 +57,18 @@ class Song_Queue():
         if (self.loaded_len < self.preload_count):
             self.download(self.preload_count - self.loaded_len)
 
+    def __getitem__(self, index):
+        if index < 0:
+            raise NotImplementedError()
+
+        if (index < len(self.loaded)):
+            return self.loaded[index]
+        else:
+            return self.unloaded[index-len(self.loaded)]
+
+    def __len__(self):
+        return len(self.loaded) + len(self.unloaded)
+
 
 class Song(discord.PCMVolumeTransformer):
     def __init__(self, search_term, download_settings):
@@ -66,6 +78,9 @@ class Song(discord.PCMVolumeTransformer):
 
         self.search_term = search_term
         self.download_settings = download_settings
+
+        #TODO: Only download the meta data when it is called, instead of when the object is created
+        self.download_metadata() 
 
         #TODO Locking Here 🔒
         
@@ -138,7 +153,3 @@ class Playlist(Song_Queue):
 
     def download_metadata(self, n):
         return 1
-
-
-
-

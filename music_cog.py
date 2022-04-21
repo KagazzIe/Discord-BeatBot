@@ -72,6 +72,8 @@ class Music(commands.Cog):
     @commands.command()
     async def skip(self, ctx):
         #Skip the song that is currently playing
+        if (ctx.guild.id not in self.guilds_dict):
+            return
         guild_instance = self.guilds_dict.get(ctx.guild.id)
         if (guild_instance.currently_playing):
             await ctx.channel.send("Skipping Song :fast_forward:")
@@ -82,7 +84,11 @@ class Music(commands.Cog):
     @commands.command()
     async def queue(self, ctx):
         #Send a list of all current songs in chat
-        pass
+        if (ctx.guild.id not in self.guilds_dict):
+            return
+
+        guild_instance = self.guilds_dict.get(ctx.guild.id)
+        await ctx.channel.send(guild_instance.song_queue_str())
 
 
 def is_link(string):
