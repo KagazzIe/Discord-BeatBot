@@ -1,4 +1,4 @@
-import song_objects
+import song_queues
 #import asyncio
 
 class Session():
@@ -9,7 +9,7 @@ class Session():
         self.end_session = end_session
         self.voice_client = None
         self.voice_channel = None
-        self.song_queue = song_objects.Song_Queue(preload_count = 1)
+        self.song_queue = song_queues.Song_Queue(preload_count = 1)
         self.currently_playing = False
         
     async def join(self, ctx):
@@ -69,8 +69,7 @@ class Session():
         final_string = "Currently Playing: "
         final_string += self.song_queue.current_song.title + "\n\n"
 
-        for i in range(len(self.song_queue)):
-            final_string += str(i+1)+ ". " +self.song_queue[i].title + "\n"
+        final_string += str(self.song_queue)
         
         return final_string
         

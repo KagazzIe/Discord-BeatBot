@@ -1,11 +1,10 @@
 import pycord
 from discord.ext import commands
 import session_object
-import song_objects
+import queue_elements
 import ytdl_config
 import asyncio
 # This file should contain all things related to the music module
-
 
 class Music(commands.Cog):
     def __init__(self, bot):
@@ -67,7 +66,7 @@ class Music(commands.Cog):
             config = ytdl_config.ytdl_url
         else:
             config = ytdl_config.ytdl_search
-        song = song_objects.Song(search_str, config)
+        song = queue_elements.Song(search_str, config, ctx.author.id)
 
         guild_instance.add_song(song)
 
