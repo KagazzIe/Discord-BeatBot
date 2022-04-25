@@ -67,7 +67,6 @@ class Music(commands.Cog):
         else:
             config = ytdl_config.ytdl_search
         song = queue_elements.Song(search_str, config, ctx.author.id)
-
         guild_instance.add_song(song)
 
         if (not guild_instance.currently_playing):
@@ -93,7 +92,6 @@ class Music(commands.Cog):
 
         guild_instance = self.guilds_dict.get(ctx.guild.id)
         await ctx.channel.send(guild_instance.song_queue_str())
-
-
+        
 def is_link(string):
     return string.startswith("https://www.youtube.com/watch?v=")

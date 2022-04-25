@@ -66,10 +66,7 @@ class Session():
         if (not self.currently_playing):
             return "There are no songs in queue"
 
-        final_string = "Currently Playing: "
-        final_string += self.song_queue.current_song.title + "\n\n"
-
-        final_string += str(self.song_queue)
+        final_string = str(self.song_queue)
         
         return final_string
         

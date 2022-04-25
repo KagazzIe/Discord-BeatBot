@@ -81,10 +81,10 @@ class Song(discord.PCMVolumeTransformer):
             return 0
 
         try:
-            self.data = self.download_settings.metadata.extract_info(self.search_term, download=False)
+            self.data = self.download_settings.download_metadata(self.search_term)
         except Exception as e:
             return str(e)
-        
+
         self.metadata_downloaded = True
         
         return 1
@@ -105,7 +105,7 @@ class Song(discord.PCMVolumeTransformer):
     def loaded_len(self):
         return 1 if self.is_downloaded else 0
 
-class Playlist(song_queues.Song_Queue):
+class Playlist():
     def __init__(self):
         self.loaded = collections.deque()
         self.unloaded = collections.deque()

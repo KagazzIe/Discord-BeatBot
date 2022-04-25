@@ -20,6 +20,10 @@ class Song_Queue():
     def pre_loaded_len(self):
         return len(self.loaded)
 
+    @property
+    def queue_len(self):
+        return len(self.loaded) + len(self.unloaded)
+
     def download(self, n):
         """Downloads the first n songs in the queue.
 
@@ -60,7 +64,6 @@ class Song_Queue():
         return
 
     def change_song(self):
-        #THIS DOES NOT WORK WITH PLAYLISTS
         if self.loaded:
             self.current_song = self.loaded.pop()
             self.check_preload()
@@ -81,13 +84,14 @@ class Song_Queue():
         if index < 0:
             raise NotImplementedError()
 
-        if (index < len(self.loaded)):
-            return self.loaded[index]
-        else:
-            return self.unloaded[index-len(self.loaded)]
+        index_deque = self.loaded + self.unloaded
+        if (self.current_song):
+            index_deque.appendleft(self.current_song)
+        
+        return index_deque[index]
 
     def __len__(self):
-        return len(self.loaded) + len(self.unloaded)
+        return len(self.loaded) + len(self.unloaded) + (1 if self.current_song else 0)
 
     def __bool__(self):
         return True if (self.current_song) else False
@@ -95,12 +99,12 @@ class Song_Queue():
     def __str__(self):
         string = ""
         for i in range(len(self)):
-            string += str(i+1)+ ". " +self[i].title + "\n"
+            string += str(i+1)+ ". " + self[i].title + "\n"
         return string
 
 class Authored_Queue(Song_Queue):
     def __init__(self, author_id):
-        super().__init__(preload_count=0)
+        super().__init__(preload_count=1)
         self.author_id = author_id
         
 
@@ -114,16 +118,13 @@ class Song_Rotator():
         # {Author_id : Authored_Queue}
         self.author_queue_dict = {}
         self.author_queue_deque = collections.deque()
+        self.current_song = None
+        
 
         # TODO: Dynamic preload count.
-        # Song Rotators are currenly only built to have a prelaod value of 1.
+        # Song Rotators are currenly built to only have a prelaod value of 1.
         self.preload_count = 1
-    
-    @property
-    def current_song(self):
-        if (not self.author_queue_deque):
-            return None
-        return self.author_queue_deque[0].current_song
+        self.current_song = None
 
     @property
     def loaded_len(self):
@@ -143,42 +144,42 @@ class Song_Rotator():
 
     def download(self, n):
         # TODO: Update this function to download the next n songs,
-        # instead of a few songs in the fist author queues
-
-        n = 1
-        for i in range(len(self.author_queue_deque)):
-            self.author_queue_deque[i].download(n//len(self.author_queue_deque))
-
-        for i in range(n%len(self.author_queue_deque)):
-            self.author_queue_deque[i].download(1)
+        # Currently this class works based on preloading 1 song from every author
+        # This should eventuall be changed, but this works for now
+        pass
         
     def change_song(self):
         if (not self.author_queue_deque):
             #There are no more songs
             return
-        
-        self.author_queue_deque[0].change_song()
 
-        if (not self.author_queue_deque[0].current_song):
+        if (self.author_queue_deque[0].queue_len == 0):
             #The author ran out of songs to play, remove them
             author = self.author_queue_deque.pop()
             del self.author_queue_dict[author.author_id]
             self.change_song()
             return
         
+        self.author_queue_deque[0].current_song = None
         self.author_queue_deque.rotate(-1)
-        self.check_preload()
-        
-        return self.author_queue_deque[0].current_song
+
+        self.current_song = self.author_queue_deque[0].change_song()
+        print(self.current_song.title)
+        #self.check_preload()
+        return self.current_song
         
     def append(self, song):
         if (song.requester not in self.author_queue_dict):
             author_queue = Authored_Queue(song.requester)
             self.author_queue_dict[song.requester] = author_queue
             self.author_queue_deque.append(author_queue)
-        
+
+
         self.author_queue_dict[song.requester].append(song)
-        self.check_preload()
+        
+        #self.check_preload()
+        
+        
 
     def check_preload(self):
         if (self.pre_loaded_len < self.preload_count):
@@ -197,5 +198,5 @@ class Song_Rotator():
     def __str__(self):
         string = ""
         for author_queue in self.author_queue_deque:
-            string += "<@" + str(author_queue.author_id)+ "> - " +author_queue.current_song.title + "\n"
+            string += "<@" + str(author_queue.author_id)+ "> - " +author_queue[0].title + "\n"
         return string
