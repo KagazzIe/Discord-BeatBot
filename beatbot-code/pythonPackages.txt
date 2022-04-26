@@ -1,0 +1,4 @@
+pycord
+discord
+youtube_dl
+PyNaCl

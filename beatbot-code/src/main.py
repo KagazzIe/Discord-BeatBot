@@ -14,7 +14,7 @@ async def on_ready():
     print('------')
     
 
-f = open("token.txt", 'r')
+f = open("../token.txt", 'r')
 token = f.readline().strip()
 f.close()
 

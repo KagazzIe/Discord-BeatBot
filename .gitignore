@@ -128,5 +128,11 @@ dmypy.json
 # Pyre type checker
 .pyre/
 
+*.js
+!jest.config.js
+*.d.ts
+node_modules
 
-token.txt
+# CDK asset staging directory
+.cdk.staging
+cdk.out
