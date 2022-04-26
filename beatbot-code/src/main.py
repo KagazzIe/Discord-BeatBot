@@ -1,5 +1,6 @@
 import pycord
 from discord.ext import commands
+import os
 
 #my libs
 import music_cog
@@ -14,7 +15,7 @@ async def on_ready():
     print('------')
     
 
-f = open("../token.txt", 'r')
+f = open(os.path.join(os.path.dirname(__file__), "..", "token.txt"), 'r')
 token = f.readline().strip()
 f.close()
 
