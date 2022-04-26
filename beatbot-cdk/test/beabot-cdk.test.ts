@@ -1,13 +1,13 @@
 // import * as cdk from 'aws-cdk-lib';
 // import { Template } from 'aws-cdk-lib/assertions';
-// import * as BeatbotCdk from '../lib/beatbot-cdk-stack';
+// import * as BeabotCdk from '../lib/beabot-cdk-stack';
 
 // example test. To run these tests, uncomment this file along with the
-// example resource in lib/beatbot-cdk-stack.ts
+// example resource in lib/beabot-cdk-stack.ts
 test('SQS Queue Created', () => {
 //   const app = new cdk.App();
 //     // WHEN
-//   const stack = new BeatbotCdk.BeatbotCdkStack(app, 'MyTestStack');
+//   const stack = new BeabotCdk.BeabotCdkStack(app, 'MyTestStack');
 //     // THEN
 //   const template = Template.fromStack(stack);
 
