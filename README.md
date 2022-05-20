@@ -46,6 +46,8 @@ Link an AWS account to the CDK with ```aws configure```
 
 By default, running this will create a EC2 t3a.small instance on the linked AWS account. There is no current way for a user change this, other than altering the code in .
 
+Run ```npm install aws-cdk-lib``` to build the required module
+
 Run ```cdk synthesize``` to build the aws stacks
 
 Run ```cdk bootstrap``` then ```cdk deploy --all``` to push the stacks into AWS. This will take a few minutes to complete.
