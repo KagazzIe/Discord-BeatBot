@@ -1,1 +1,1 @@
-docker build . -t beatbot
+docker build . -t beatbot-js
